@@ -1,0 +1,14 @@
+{
+  "name": "newsharp",
+  "account_id": "9dc8d8b91f703446dd444d6955cc9c7f",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-19",
+  "workers_dev": true,
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["**/*.lua"],
+      "fallthrough": true
+    }
+  ]
+}
