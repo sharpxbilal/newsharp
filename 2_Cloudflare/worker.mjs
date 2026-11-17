@@ -1,4 +1,4 @@
-import payload from '../1_GitHub/2.lua';
+import payload from '../1_GitHub/sharp.lua';
 
 const MAX_FORM_BYTES = 1024;
 const COMMON_HEADERS = Object.freeze({
@@ -61,7 +61,7 @@ async function readForm(request) {
 }
 
 // No digest, byte count, release ID or marker is required to publish new Lua.
-function createHandler({ payload, primaryName = '2.lua', basePath = '/' }) {
+function createHandler({ payload, primaryName = 'sharp.lua', basePath = '/' }) {
   if (typeof payload !== 'string' || !payload.length) throw new TypeError('Payload must be nonempty Lua text');
   if (typeof primaryName !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]*\.lua$/.test(primaryName)) {
     throw new TypeError('Invalid payload name');
@@ -97,5 +97,5 @@ function createHandler({ payload, primaryName = '2.lua', basePath = '/' }) {
 
 
 export default {
-  fetch: createHandler({ payload, primaryName: "2.lua", basePath: "/" }),
+  fetch: createHandler({ payload, primaryName: "sharp.lua", basePath: "/" }),
 };
