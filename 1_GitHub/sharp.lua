@@ -16312,16 +16312,13 @@ local function ESPStartAll()
   end)
 end
 
--- Sharp.lua approach: ESP engine load pe properly initialize karo (no shake)
-pcall(function()
-  ESPStartAll()
-  ESPLater(1.0, ESPStartAll)
-end)
+-- Timers hamesha attach karo (infrastructure ready)
 if not _G.__ESPLookTickStarted then
   _G.__ESPLookTickStarted = true
-  ESP.bActive = true
+  ESP.bActive = false  -- KEY GATE: false start
   ESP.AttachTimers()
 end
+-- ESPStartAll sirf key hone pe chalega (MainLoop karega)
 
 _G.PMM_ESPV2 = ESP
 -- ESP V2: koi bhi ek feature ON ho to engine chalega (BOX ka ON hona zaroori nahi)
@@ -16340,16 +16337,14 @@ local function MainLoop()
     -- KEY SYSTEM GATE: Jab tak key valid na ho, koi feature kaam nahi karega
     if not BRLicenseActive() then return end
 
-    -- ESP V2 re-entry fix: PC change hone par ESPStartAll dobara chalao
-    pcall(function()
-        if type(ESPStartAll) == "function" then
-            local pc = ESP and ESP.GetController and ESP.GetController()
-            if pc ~= _ESPStartedPC then
-                ESPStartAll()
-            end
-        end
-    end)
-
+    -- KEY GATE: ESP sirf key ke baad start hoga (ek baar)
+    if not _G.__ESPStartedWithKey then
+        _G.__ESPStartedWithKey = true
+        pcall(function()
+            if type(ESPStartAll) == "function" then ESPStartAll() end
+        end)
+    end
+    if _G.PMM_ESPV2 then _G.PMM_ESPV2.bActive = true end
 
     -- ★★★ ပြင်ဆင်ချက်: ESP V2 Classic Rank / TDM အတွက် ပြန်စမ်းသပ် Watchdog ★★★
     -- ယခင်က ClearVisionV2.Start() ကို menu toggle ဖွင့်ချိန် တစ်ကြိမ်သာ ခေါ်ခဲ့ပါတယ်။
