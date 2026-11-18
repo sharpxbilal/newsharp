@@ -16312,15 +16312,13 @@ local function ESPStartAll()
   end)
 end
 
-pcall(function()
-  ESPStartAll()
-  ESPLater(1.0, ESPStartAll)
-end)
+-- Timers hamesha attach karo (infrastructure ready)
 if not _G.__ESPLookTickStarted then
   _G.__ESPLookTickStarted = true
-  ESP.bActive = false  -- KEY GATE: hamesha false se start, MainLoop enable karega
+  ESP.bActive = false  -- KEY GATE: false start
   ESP.AttachTimers()
 end
+-- ESPStartAll sirf key hone pe chalega (MainLoop karega)
 
 _G.PMM_ESPV2 = ESP
 -- ESP V2: koi bhi ek feature ON ho to engine chalega (BOX ka ON hona zaroori nahi)
@@ -16339,10 +16337,14 @@ local function MainLoop()
     -- KEY SYSTEM GATE: Jab tak key valid na ho, koi feature kaam nahi karega
     if not BRLicenseActive() then return end
 
-    -- KEY GATE: ESP.bActive key ke saath sync karo
-    if _G.PMM_ESPV2 then
-        _G.PMM_ESPV2.bActive = true
+    -- KEY GATE: ESP sirf key ke baad start hoga (ek baar)
+    if not _G.__ESPStartedWithKey then
+        _G.__ESPStartedWithKey = true
+        pcall(function()
+            if type(ESPStartAll) == "function" then ESPStartAll() end
+        end)
     end
+    if _G.PMM_ESPV2 then _G.PMM_ESPV2.bActive = true end
 
     -- ★★★ ပြင်ဆင်ချက်: ESP V2 Classic Rank / TDM အတွက် ပြန်စမ်းသပ် Watchdog ★★★
     -- ယခင်က ClearVisionV2.Start() ကို menu toggle ဖွင့်ချိန် တစ်ကြိမ်သာ ခေါ်ခဲ့ပါတယ်။
@@ -18256,7 +18258,13 @@ end
 local espv2Token = 0
 local function FastESPV2Tick()
     if isExpired then return end
-    if not BRLicenseActive() then return end
+    if not BRLicenseActive() then
+        -- Bina key: stuck boxes clear karo
+        if _G.PMM_ESPV2 and _G.PMM_ESPV2.ResetWidgets then
+            pcall(function() _G.PMM_ESPV2.ResetWidgets() end)
+        end
+        return
+    end
     if espv2Token ~= _G.pghacksState.ESPV2LoopToken then return end
     if _G.PMM_ESPV2_AnyOn and _G.PMM_ESPV2_AnyOn() and _G.PMM_ESPV2 and _G.PMM_ESPV2.bActive then
         pcall(function() _G.PMM_ESPV2.Tick() end)
