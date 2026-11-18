@@ -1680,7 +1680,7 @@ local MasterLoginUI = (function()
 
                 -- Contact Info
                 local contact = make("TextBlock", data.container)
-                contact:SetText("📱 DM TO BUY KEY  |  +92 3170025278  |  Telegram: @PGHACKS7")
+                contact:SetText(" DM TO BUY KEY  |  +92 3170025278  |  Telegram: @PGHACKS7")
                 setTextStyle(contact, 10, color(1.0, 0.75, 0.0, 1.0))
                 visibility(contact, passive)
                 pcall(function() contact:SetAutoWrapText(false) end)
@@ -1785,9 +1785,9 @@ local MasterWelcomeUI = (function()
         end
         local WelcomeUI = {Width = 600, Height = 276}
         local WelcomeText = {
-            "WELCOME TO OUR PREMIUM PAK",
-            "PLAY SMART AVOID REPORT",
-            "Wrna Tuwa Kul Jayega",
+            "Welcome to our Premium Pak",
+            "Play smart and avoid report",
+            "Warna tuwa kul jana hai tera",
         }
         local UI = {_shown = false, _data = nil}
         local function detach(data)
@@ -16312,17 +16312,14 @@ local function ESPStartAll()
   end)
 end
 
--- KEY GATE: ESP bina key ke start nahi hoga
-if BRLicenseActive() then
 pcall(function()
   ESPStartAll()
   ESPLater(1.0, ESPStartAll)
 end)
 if not _G.__ESPLookTickStarted then
   _G.__ESPLookTickStarted = true
-  ESP.bActive = true
+  ESP.bActive = BRLicenseActive()  -- KEY GATE: bina key false rahega
   ESP.AttachTimers()
-end
 end
 
 _G.PMM_ESPV2 = ESP
@@ -18254,7 +18251,11 @@ end
 local espv2Token = 0
 local function FastESPV2Tick()
     if isExpired then return end
-    if not BRLicenseActive() then return end
+    if not BRLicenseActive() then
+        if ESP and ESP.bActive then ESP.bActive = false end
+        return
+    end
+    if ESP and not ESP.bActive then ESP.bActive = true end
     if espv2Token ~= _G.pghacksState.ESPV2LoopToken then return end
     if _G.PMM_ESPV2_AnyOn and _G.PMM_ESPV2_AnyOn() and _G.PMM_ESPV2 and _G.PMM_ESPV2.bActive then
         pcall(function() _G.PMM_ESPV2.Tick() end)
