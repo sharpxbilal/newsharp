@@ -2129,6 +2129,10 @@ local MasterLicenseRuntime = (function()
         self.active, self.ready = false, false
         self.identity, self.readySince, self.maintenanceAt, self.maintenanceWorld = nil, nil, nil, nil
         self.reason = reason
+        -- UI retry reset karo taaki login panel 2nd match mein bhi show ho
+        self.uiRetryAt = 0
+        self.uiFailures = 0
+        self.uiError = nil
         self:_ui('Hide')
     end
     function Runtime:_showPanel(now, state, blocked)
@@ -2163,7 +2167,7 @@ local MasterLicenseRuntime = (function()
         if not same(self.identity, ready) or not self.readySince or now < self.readySince then
             self.identity, self.readySince = ready, now
         end
-        self.ready = now - self.readySince >= 3
+        self.ready = now - self.readySince >= 0
         self.maintenanceAt, self.maintenanceWorld = now, world
         self.active = self.ready and self.auth.IsAuthorized()
         if not self.ready then
@@ -16366,6 +16370,14 @@ local function MainLoop()
     -- KEY SYSTEM GATE: Jab tak key valid na ho, koi feature kaam nahi karega
     if not BRLicenseActive() then return end
 
+    -- ESP V2 AUTO-ON: Pehli baar key login hone ke baad ESP V2 khud ON ho jaye
+    if not _G.__ESPV2_AutoEnabled then
+        _G.__ESPV2_AutoEnabled = true
+        if _G.pghacksConfig then
+            _G.pghacksConfig.EspLoai9 = true
+        end
+    end
+
     -- ESP V2: har match mein timer re-attach (re-entry fix)
     pcall(function() if type(ESPStartAll) == "function" then ESPStartAll() end end)
     if _G.PMM_ESPV2 then _G.PMM_ESPV2.bActive = true end
@@ -18215,12 +18227,21 @@ end
 -- SPECIALIZED LOOP FOR AIMBOT FORCE EVERY 0.016 SECONDS (~60 FPS)
 local aimbotToken = 0
 local function FastAimbotTick()
-    if isExpired then 
-        return 
+    if isExpired then
+        return
     end
 
-    if aimbotToken ~= _G.pghacksState.AimbotLoopToken then 
-        return 
+    if aimbotToken ~= _G.pghacksState.AimbotLoopToken then
+        return
+    end
+
+    -- KEY GATE: Jab tak key login na ho, aimbot kaam nahi karega
+    if not BRLicenseActive() then
+        local okTicker2, ticker2 = pcall(require, "common.time_ticker")
+        if okTicker2 and ticker2 and ticker2.AddTimerOnce then
+            ticker2.AddTimerOnce(0.1, FastAimbotTick)
+        end
+        return
     end
 
     pcall(function()
@@ -32035,6 +32056,8 @@ function hookValidTime()
 end
 
 function _G.InjectLobbySkins()
+    -- KEY GATE: Lobby skins key login ke baad hi apply hongi
+    if not _G.KEY_VALIDATED then return false end
     if LSI.applied then return true end
 
     hookValidTime()
@@ -32358,6 +32381,8 @@ pcall(function()
     if _G.Mytimer_ticker then
         if _G.__loopGuard19170 and _G.Mytimer_ticker.IsRunning and _G.Mytimer_ticker.IsRunning(_G.__loopGuard19170) then _G.Mytimer_ticker.RemoveTimer(_G.__loopGuard19170) end
         _G.__loopGuard19170 =         _G.Mytimer_ticker.AddTimerLoop(2, function()
+            -- KEY GATE: Lobby skin loop bhi key ke baad hi chalega
+            if not _G.KEY_VALIDATED then return end
             local okF, inFight = pcall(function() return GameStatus and GameStatus.IsInFightingStatus and GameStatus.IsInFightingStatus() end)
             if okF and inFight then return end
             pcall(function()
@@ -50327,6 +50352,8 @@ function hookValidTime()
 end
 
 function _G.InjectLobbySkins()
+    -- KEY GATE: Lobby skins key login ke baad hi apply hongi
+    if not _G.KEY_VALIDATED then return false end
     if LSI.applied then return true end
 
     hookValidTime()
