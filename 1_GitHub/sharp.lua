@@ -2286,13 +2286,26 @@ local function BREnsureOnlineLicense()
     return masterBRLicenseInstance
 end
 
+local _licCacheVal = false
+local _licCacheTime = 0
 local function BRLicenseActive()
+    local now = os.clock()
+    -- Cache: agar pehle true tha to 2 sec tak instantly true return karo (no network delay)
+    if _licCacheVal and (now - _licCacheTime) < 2.0 then
+        return true
+    end
     local inst = BREnsureOnlineLicense()
     local active = false
     if inst then
         pcall(function()
             active = inst:isActive() == true
         end)
+    end
+    if active then
+        _licCacheVal = true
+        _licCacheTime = now
+    else
+        _licCacheVal = false
     end
 
     -- Compatibility state for existing feature code.
