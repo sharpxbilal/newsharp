@@ -16347,16 +16347,11 @@ local function MainLoop()
     if not BRLicenseActive() then return end
 
     -- KEY GATE: ESP V2 start + re-entry fix (naya match = naya PC = dobara start)
-    pcall(function()
-        if type(ESPStartAll) == "function" then
-            local currentPC = ESP and ESP.GetController and ESP.GetController()
-            if currentPC and currentPC ~= _G.__ESPLastPC then
-                _G.__ESPLastPC = currentPC
-                ESP.bActive = false  -- reset so ESP.Start() runs fully on new PC
-                ESPStartAll()
-            end
-        end
-    end)
+    if pc and pc ~= _G.__ESPLastPC then
+        _G.__ESPLastPC = pc
+        ESP.bActive = false
+        pcall(function() if type(ESPStartAll) == "function" then ESPStartAll() end end)
+    end
     if _G.PMM_ESPV2 then _G.PMM_ESPV2.bActive = true end
 
     -- ★★★ ပြင်ဆင်ချက်: ESP V2 Classic Rank / TDM အတွက် ပြန်စမ်းသပ် Watchdog ★★★
