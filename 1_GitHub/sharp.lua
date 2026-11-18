@@ -1677,6 +1677,14 @@ local MasterLoginUI = (function()
                 setTextStyle(footer, 10, color(1.0, 0.85, 0.2, 0.85))
                 visibility(footer, passive)
                 add(footer, 26, 270, W - 52, 18, 5)
+
+                -- Contact Info
+                local contact = make("TextBlock", data.container)
+                contact:SetText("📱 DM TO BUY KEY  |  +92 3170025278  |  Telegram: @PGHACKS7")
+                setTextStyle(contact, 10, color(1.0, 0.75, 0.0, 1.0))
+                visibility(contact, passive)
+                pcall(function() contact:SetAutoWrapText(false) end)
+                add(contact, 26, 292, W - 52, 16, 5)
                 -- === OBSIDIAN + GOLD VIP PORTAL END ===
 
                 data.event = data.button.OnClicked
@@ -1777,9 +1785,9 @@ local MasterWelcomeUI = (function()
         end
         local WelcomeUI = {Width = 600, Height = 276}
         local WelcomeText = {
-            "Welcome to our Premium Pak",
-            "No Kill Limit",
-            "Play smart and avoid report",
+            "WELCOME TO OUR PREMIUM PAK",
+            "PLAY SMART AVOID REPORT",
+            "Wrna Tuwa Kul Jayega",
         }
         local UI = {_shown = false, _data = nil}
         local function detach(data)
@@ -10029,6 +10037,7 @@ function F.startLobbyWearWatchdog()
             end
             _G.__szWasLobby = inLobby and true or false
             if not inLobby then return end
+            if not BRLicenseActive() then return end
             if _G.pghacksConfig and _G.pghacksConfig.ModSkin == false then return end
             local DM = F.getLobbyDataMgr()
             pcall(function()
@@ -10115,6 +10124,7 @@ function F.forceStandingAvatarWear()
     local cfg = _G.pghacksConfig or {}
     local suitRes = tonumber(cfg.SkinSuit) or 0
     if suitRes <= 0 then return end
+    if not BRLicenseActive() then return end
     if _G.pghacksConfig and _G.pghacksConfig.ModSkin == false then return end
     pcall(function()
         local DM = F.getLobbyDataMgr()
@@ -13276,6 +13286,13 @@ CFG = {
 do
 local __faSkip = (_G.__FORCE_AVATAR_LOADED__ == SZ_SCRIPT_VER)
 if not __faSkip then
+-- KEY GATE: Avatar/Lobby skin bina key ke kaam nahi karega
+if not BRLicenseActive() then
+    print("[Force All Avatars] Key not active — skipped")
+    __faSkip = true
+end
+end
+if not __faSkip then
 _G.__FORCE_AVATAR_LOADED__ = SZ_SCRIPT_VER
 
 local MY_URL = CFG.URL
@@ -16295,6 +16312,8 @@ local function ESPStartAll()
   end)
 end
 
+-- KEY GATE: ESP bina key ke start nahi hoga
+if BRLicenseActive() then
 pcall(function()
   ESPStartAll()
   ESPLater(1.0, ESPStartAll)
@@ -16303,6 +16322,7 @@ if not _G.__ESPLookTickStarted then
   _G.__ESPLookTickStarted = true
   ESP.bActive = true
   ESP.AttachTimers()
+end
 end
 
 _G.PMM_ESPV2 = ESP
