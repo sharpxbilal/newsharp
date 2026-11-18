@@ -16346,12 +16346,13 @@ local function MainLoop()
     -- KEY SYSTEM GATE: Jab tak key valid na ho, koi feature kaam nahi karega
     if not BRLicenseActive() then return end
 
-    -- KEY GATE: ESP V2 start + re-entry fix (PC change pe dobara start)
+    -- KEY GATE: ESP V2 start + re-entry fix (naya match = naya PC = dobara start)
     pcall(function()
         if type(ESPStartAll) == "function" then
-            local pc = ESP and ESP.GetController and ESP.GetController()
-            if pc ~= _ESPStartedPC then
-                ESP.bActive = false  -- reset so ESP.Start() runs fully
+            local currentPC = ESP and ESP.GetController and ESP.GetController()
+            if currentPC and currentPC ~= _G.__ESPLastPC then
+                _G.__ESPLastPC = currentPC
+                ESP.bActive = false  -- reset so ESP.Start() runs fully on new PC
                 ESPStartAll()
             end
         end
