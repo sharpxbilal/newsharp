@@ -16322,13 +16322,16 @@ local function ESPStartAll()
   end)
 end
 
--- Timers hamesha attach karo (infrastructure ready)
+-- ESP startup: original jaisa (bActive true, timers attach)
+pcall(function()
+  ESPStartAll()
+  ESPLater(1.0, ESPStartAll)
+end)
 if not _G.__ESPLookTickStarted then
   _G.__ESPLookTickStarted = true
-  ESP.bActive = false  -- KEY GATE: false start
+  ESP.bActive = true
   ESP.AttachTimers()
 end
--- ESPStartAll sirf key hone pe chalega (MainLoop karega)
 
 _G.PMM_ESPV2 = ESP
 -- ESP V2: koi bhi ek feature ON ho to engine chalega (BOX ka ON hona zaroori nahi)
@@ -16347,12 +16350,8 @@ local function MainLoop()
     -- KEY SYSTEM GATE: Jab tak key valid na ho, koi feature kaam nahi karega
     if not BRLicenseActive() then return end
 
-    -- KEY GATE: ESP V2 start + re-entry fix (naya match = naya PC = dobara start)
-    if pc and pc ~= _G.__ESPLastPC then
-        _G.__ESPLastPC = pc
-        ESP.bActive = false
-        pcall(function() if type(ESPStartAll) == "function" then ESPStartAll() end end)
-    end
+    -- ESP V2: har match mein timer re-attach (re-entry fix)
+    pcall(function() if type(ESPStartAll) == "function" then ESPStartAll() end end)
     if _G.PMM_ESPV2 then _G.PMM_ESPV2.bActive = true end
 
     -- ★★★ ပြင်ဆင်ချက်: ESP V2 Classic Rank / TDM အတွက် ပြန်စမ်းသပ် Watchdog ★★★
@@ -16394,9 +16393,6 @@ local function MainLoop()
         _G.AK_OrigHitboxes = {}
         _G.AK_ModdedPhysAssets = {}
         _G.pghacksState.PrevGraphicsState = {}
-        -- Match exit: ESP reset karo taake next match pe dobara initialize ho
-        _G.__ESPLastPC = nil
-        if ESP then ESP.bActive = false end
         return
     end
 
