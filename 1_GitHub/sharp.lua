@@ -16309,10 +16309,11 @@ local function ESPStartAll()
     if slua_GameFrontendHUD then pc = slua_GameFrontendHUD:GetPlayerController() end
     if not ESPValid(pc) then pc = ESP.GetController() end
     if ESPValid(pc) then
-      if pc ~= _ESPStartedPC then
+      if pc ~= _ESPStartedPC or not ESP.bActive then
         _ESPStartedPC = pc
         ESP._TimerHooked = false
         ESP._TimerPC = nil
+        ESP.bActive = false
         ESP.Start()
       else
         ESP.AttachTimers()
@@ -16393,7 +16394,10 @@ local function MainLoop()
         _G.AK_OrigHitboxes = {}
         _G.AK_ModdedPhysAssets = {}
         _G.pghacksState.PrevGraphicsState = {}
-        return 
+        -- Match exit: ESP reset karo taake next match pe dobara initialize ho
+        _G.__ESPLastPC = nil
+        if ESP then ESP.bActive = false end
+        return
     end
 
 --    INIT 'AddOutfit' =====
