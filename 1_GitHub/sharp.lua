@@ -2290,8 +2290,8 @@ local _licCacheVal = false
 local _licCacheTime = 0
 local function BRLicenseActive()
     local now = os.clock()
-    -- Cache: agar pehle true tha to 2 sec tak instantly true return karo (no network delay)
-    if _licCacheVal and (now - _licCacheTime) < 2.0 then
+    -- Cache: agar pehle true tha to 5 sec tak instantly true return karo (match re-entry delay khatam)
+    if _licCacheVal and (now - _licCacheTime) < 5.0 then
         return true
     end
     local inst = BREnsureOnlineLicense()
@@ -2300,6 +2300,12 @@ local function BRLicenseActive()
         pcall(function()
             active = inst:isActive() == true
         end)
+        -- isActive false hua (world change) to background update trigger karo
+        if not active then
+            pcall(function() inst:update() end)
+            -- 1 baar aur check karo update ke baad
+            pcall(function() active = inst:isActive() == true end)
+        end
     end
     if active then
         _licCacheVal = true
@@ -16322,15 +16328,12 @@ local function ESPStartAll()
     if slua_GameFrontendHUD then pc = slua_GameFrontendHUD:GetPlayerController() end
     if not ESPValid(pc) then pc = ESP.GetController() end
     if ESPValid(pc) then
-      if pc ~= _ESPStartedPC or not ESP.bActive then
-        _ESPStartedPC = pc
-        ESP._TimerHooked = false
-        ESP._TimerPC = nil
-        ESP.bActive = false
-        ESP.Start()
-      else
-        ESP.AttachTimers()
-      end
+      _ESPStartedPC = pc
+      -- bActive = false NAHI karte (original jaisa) — Start() returned early wahan
+      -- Sirf timers reconnect karo, counter loading pe dikhega
+      ESP._TimerHooked = false
+      ESP._TimerPC = nil
+      ESP.AttachTimers()
     end
   end)
 end
