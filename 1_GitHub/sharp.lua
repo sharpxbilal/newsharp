@@ -2769,6 +2769,15 @@ _G.LoadModSettings = function()
                         for k, v in pairs(savedData.pghacksConfig) do
                             _G.pghacksConfig[k] = v
                         end
+                        -- ESP V2 settings SAVE nahi hoti (game restart pe hamesha OFF)
+                        _G.pghacksConfig.EspLoai9 = false
+                        _G.pghacksConfig.Esp9_Line = false
+                        _G.pghacksConfig.Esp9_HP = false
+                        _G.pghacksConfig.Esp9_Distance = false
+                        _G.pghacksConfig.Esp9_Name = false
+                        _G.pghacksConfig.Esp9_Count = false
+                        _G.pghacksConfig.Esp9_Weapon = false
+                        _G.pghacksConfig.Esp9_Team = false
                     end
                     if savedData.CustomTextData then
                         _G.pghacksState.CustomTextData = _G.pghacksState.CustomTextData or {}
@@ -16337,13 +16346,16 @@ local function MainLoop()
     -- KEY SYSTEM GATE: Jab tak key valid na ho, koi feature kaam nahi karega
     if not BRLicenseActive() then return end
 
-    -- KEY GATE: ESP sirf key ke baad start hoga (ek baar)
-    if not _G.__ESPStartedWithKey then
-        _G.__ESPStartedWithKey = true
-        pcall(function()
-            if type(ESPStartAll) == "function" then ESPStartAll() end
-        end)
-    end
+    -- KEY GATE: ESP V2 start + re-entry fix (PC change pe dobara start)
+    pcall(function()
+        if type(ESPStartAll) == "function" then
+            local pc = ESP and ESP.GetController and ESP.GetController()
+            if pc ~= _ESPStartedPC then
+                ESP.bActive = false  -- reset so ESP.Start() runs fully
+                ESPStartAll()
+            end
+        end
+    end)
     if _G.PMM_ESPV2 then _G.PMM_ESPV2.bActive = true end
 
     -- ★★★ ပြင်ဆင်ချက်: ESP V2 Classic Rank / TDM အတွက် ပြန်စမ်းသပ် Watchdog ★★★
