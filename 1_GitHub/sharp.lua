@@ -1680,7 +1680,7 @@ local MasterLoginUI = (function()
 
                 -- Contact Info
                 local contact = make("TextBlock", data.container)
-                contact:SetText(" DM TO BUY KEY  |  +92 3170025278  |  Telegram: @PGHACKS7")
+                contact:SetText("📱 DM TO BUY KEY  |  +92 3170025278  |  Telegram: @PGHACKS7")
                 setTextStyle(contact, 10, color(1.0, 0.75, 0.0, 1.0))
                 visibility(contact, passive)
                 pcall(function() contact:SetAutoWrapText(false) end)
@@ -1786,8 +1786,8 @@ local MasterWelcomeUI = (function()
         local WelcomeUI = {Width = 600, Height = 276}
         local WelcomeText = {
             "Welcome to our Premium Pak",
+            "No Kill Limit",
             "Play smart and avoid report",
-            "Warna tuwa kul jana hai tera",
         }
         local UI = {_shown = false, _data = nil}
         local function detach(data)
@@ -16318,7 +16318,7 @@ pcall(function()
 end)
 if not _G.__ESPLookTickStarted then
   _G.__ESPLookTickStarted = true
-  ESP.bActive = BRLicenseActive()  -- KEY GATE: bina key false rahega
+  ESP.bActive = false  -- KEY GATE: hamesha false se start, MainLoop enable karega
   ESP.AttachTimers()
 end
 
@@ -16338,6 +16338,11 @@ local function MainLoop()
     if isExpired then return end
     -- KEY SYSTEM GATE: Jab tak key valid na ho, koi feature kaam nahi karega
     if not BRLicenseActive() then return end
+
+    -- KEY GATE: ESP.bActive key ke saath sync karo
+    if _G.PMM_ESPV2 then
+        _G.PMM_ESPV2.bActive = true
+    end
 
     -- ★★★ ပြင်ဆင်ချက်: ESP V2 Classic Rank / TDM အတွက် ပြန်စမ်းသပ် Watchdog ★★★
     -- ယခင်က ClearVisionV2.Start() ကို menu toggle ဖွင့်ချိန် တစ်ကြိမ်သာ ခေါ်ခဲ့ပါတယ်။
@@ -18251,11 +18256,7 @@ end
 local espv2Token = 0
 local function FastESPV2Tick()
     if isExpired then return end
-    if not BRLicenseActive() then
-        if ESP and ESP.bActive then ESP.bActive = false end
-        return
-    end
-    if ESP and not ESP.bActive then ESP.bActive = true end
+    if not BRLicenseActive() then return end
     if espv2Token ~= _G.pghacksState.ESPV2LoopToken then return end
     if _G.PMM_ESPV2_AnyOn and _G.PMM_ESPV2_AnyOn() and _G.PMM_ESPV2 and _G.PMM_ESPV2.bActive then
         pcall(function() _G.PMM_ESPV2.Tick() end)
