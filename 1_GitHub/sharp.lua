@@ -18266,10 +18266,15 @@ end
 local espv2Token = 0
 local function FastESPV2Tick()
     if isExpired then return end
+    local ticker = nil
+    pcall(function() ticker = require("common.time_ticker") end)
     if not BRLicenseActive() then
-        -- Bina key: stuck boxes clear karo
+        -- Bina key: stuck boxes clear karo, lekin timer HAMESHA reschedule karo
         if _G.PMM_ESPV2 and _G.PMM_ESPV2.ResetWidgets then
             pcall(function() _G.PMM_ESPV2.ResetWidgets() end)
+        end
+        if ticker and ticker.AddTimerOnce then
+            ticker.AddTimerOnce(0.1, FastESPV2Tick)  -- slow poll jab key nahi
         end
         return
     end
@@ -18277,11 +18282,8 @@ local function FastESPV2Tick()
     if _G.PMM_ESPV2_AnyOn and _G.PMM_ESPV2_AnyOn() and _G.PMM_ESPV2 and _G.PMM_ESPV2.bActive then
         pcall(function() _G.PMM_ESPV2.Tick() end)
     elseif _G.PMM_ESPV2 and _G.PMM_ESPV2.ResetWidgets then
-        -- sab features OFF hain: canvas widgets clear karo (stuck boxes fix)
         pcall(function() _G.PMM_ESPV2.ResetWidgets() end)
     end
-    local ticker = nil
-    pcall(function() ticker = require("common.time_ticker") end)
     if ticker and ticker.AddTimerOnce then
         ticker.AddTimerOnce(0.016, FastESPV2Tick)
     end
