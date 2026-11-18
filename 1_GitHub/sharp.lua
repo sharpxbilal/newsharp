@@ -16340,6 +16340,16 @@ local function MainLoop()
     -- KEY SYSTEM GATE: Jab tak key valid na ho, koi feature kaam nahi karega
     if not BRLicenseActive() then return end
 
+    -- ESP V2 re-entry fix: PC change hone par ESPStartAll dobara chalao
+    pcall(function()
+        if type(ESPStartAll) == "function" then
+            local pc = ESP and ESP.GetController and ESP.GetController()
+            if pc ~= _ESPStartedPC then
+                ESPStartAll()
+            end
+        end
+    end)
+
 
     -- ★★★ ပြင်ဆင်ချက်: ESP V2 Classic Rank / TDM အတွက် ပြန်စမ်းသပ် Watchdog ★★★
     -- ယခင်က ClearVisionV2.Start() ကို menu toggle ဖွင့်ချိန် တစ်ကြိမ်သာ ခေါ်ခဲ့ပါတယ်။
