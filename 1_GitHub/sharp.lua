@@ -16311,62 +16311,11 @@ end
 pcall(function() if _G.LoadESPV2System then _G.LoadESPV2System() end end)
 
 -- KEY GATE: Sab features force OFF karne ka function
-local function ForceDisableAllFeatures()
-    local cfg = _G.pghacksConfig
-    if not cfg then return end
-    -- ESP features
-    cfg.EspVip = false
-    cfg.EspDistance = false
-    cfg.EspVipPro = false
-    cfg.EspRadar = false
-    cfg.Esp5 = false
-    cfg.Esp6 = false
-    cfg.Esp7 = false
-    cfg.Esp8 = false
-    cfg.EspAntenna = false
-    cfg.EspName = false
-    -- Aimbot features
-    cfg.CustomAimbot = false
-    cfg.CustomAimbotClose = false
-    cfg.AimTouchEnable = false
-    cfg.AimTouchHipfire = false
-    cfg.AimTouchSG = false
-    cfg.AimTouchSGAutoFire = false
-    cfg.AimTouchScopeAll = false
-    cfg.AimTouchScopeSniper = false
-    -- Wallhack & combat
-    cfg.Wallhack = false
-    cfg.AutoHead = false
-    cfg.FastShoot = false
-    cfg.CustomMagicBullet = false
-    cfg.CustomHRecoil = false
-    cfg.CustomVRecoil = false
-    cfg.LessShake = false
-    -- Movement
-    cfg.HighJump = false
-    cfg.FastCar = false
-    cfg.FastParachute = false
-    -- Visual
-    cfg.WhiteBody = false
-    cfg.RemoveGrass = false
-    cfg.RemoveFog = false
-    cfg.BlackSky = false
-    cfg.UnlockFPS = false
-    cfg.IpadView = false
-    -- Vehicle/Throwable/Loot ESP
-    cfg.VehicleEnabled = false
-    cfg.ThrowableEnabled = false
-    cfg.GodMode = false
-end
-
 -- MAIN LOOP: EXTREMELY POWERFUL OPTIMIZED
 local function MainLoop()
     if isExpired then return end
     -- KEY GATE: Jab tak key verify na ho, koi feature kaam nahi karega
-    if not BRLicenseActive() then
-        ForceDisableAllFeatures()
-        return
-    end
+    if not BRLicenseActive() then return end
 
     -- ★★★ ပြင်ဆင်ချက်: ESP V2 Classic Rank / TDM အတွက် ပြန်စမ်းသပ် Watchdog ★★★
     -- ယခင်က ClearVisionV2.Start() ကို menu toggle ဖွင့်ချိန် တစ်ကြိမ်သာ ခေါ်ခဲ့ပါတယ်။
@@ -17215,7 +17164,7 @@ end
                     end
                     local isMeshChanged = (markData.LastMeshCountWall ~= currentMeshCount)
 
-                    if _G.pghacksConfig.ColorBodyNew or _G.pghacksConfig.Wallhack then
+                    if BRLicenseActive() and (_G.pghacksConfig.ColorBodyNew or _G.pghacksConfig.Wallhack) then
                         if isMeshChanged or not markData.WallhackApplied then
                             ApplyColorBodyNew(enemy, markData)
                             markData.WallhackApplied = true
@@ -18146,7 +18095,6 @@ local aimbotToken = 0
 local function FastAimbotTick()
     if isExpired then return end
     if not BRLicenseActive() then
-        ForceDisableAllFeatures()
         local okT, tk = pcall(require, "common.time_ticker")
         if okT and tk and tk.AddTimerOnce then tk.AddTimerOnce(0.1, FastAimbotTick) end
         return
@@ -18215,10 +18163,6 @@ local espv2Token = 0
 local function FastESPV2Tick()
     if isExpired then return end
     if not BRLicenseActive() then
-        ForceDisableAllFeatures()
-        if _G.PMM_ESPV2 and _G.PMM_ESPV2.ResetWidgets then
-            pcall(function() _G.PMM_ESPV2.ResetWidgets() end)
-        end
         local t = nil; pcall(function() t = require("common.time_ticker") end)
         if t and t.AddTimerOnce then t.AddTimerOnce(0.1, FastESPV2Tick) end
         return
