@@ -61,6 +61,11 @@ end
 
 function BRPlayerCharacterBase:ReceiveBeginPlay()
   BRPlayerCharacterBase.__super.ReceiveBeginPlay(self)
+  -- Match restart pe menu reset karo taake key page pe ESP V2 na chale
+  if self.Role == ENetRole.ROLE_AutonomousProxy then
+      _G.pghacksMenuAlreadyShown = false
+      _G.pghacksState.MenuStep = 0
+  end
   self:AddControlEvent(self, "MovementModeChangedDelegate", self.HandleOnMovementModeChangedNew, self)
   if self:HasAuthority() and self:CheckAddCheckFallingDistanceComponent() then
     local CheckFallingDistanceComponent_C = import("CheckFallingDistanceComponent")
@@ -18164,6 +18169,12 @@ end
 local espv2Token = 0
 local function FastESPV2Tick()
     if isExpired then return end
+    -- Menu show hone se pehle ESP V2 nahi chalega (match restart fix)
+    if not _G.pghacksMenuAlreadyShown then
+        local t = nil; pcall(function() t = require("common.time_ticker") end)
+        if t and t.AddTimerOnce then t.AddTimerOnce(0.5, FastESPV2Tick) end
+        return
+    end
     if not BRLicenseActive() then
         local t = nil; pcall(function() t = require("common.time_ticker") end)
         if t and t.AddTimerOnce then t.AddTimerOnce(0.1, FastESPV2Tick) end
