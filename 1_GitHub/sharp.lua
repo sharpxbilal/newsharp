@@ -677,7 +677,7 @@ _G.pghacksConfig = _G.pghacksConfig or {
     EspWeaponStatus = false,
 
     -- Skin Mod
-    ModSkin = true,
+    ModSkin = false,
     KillMessage = true,    -- Kill Messenger (FIX: enabled by default)
     SkinDeadBox = true,    -- Deadbox Skin   (FIX: enabled by default)
     KillCountUI = false,   -- Kill Counter UI
@@ -690,6 +690,11 @@ _G.pghacksConfig = _G.pghacksConfig or {
         [101004] = {FireSpeed = false, InstanHit = false, FastSwitch = false, FastScope = false},
         [101008] = {FireSpeed = false, InstanHit = false, FastSwitch = false, FastScope = false},
     },
+
+    -- Zone Prediction
+    ZonePrediction = false, -- Zone Prediction (manual toggle in iPad View)
+    LuckyEggESP = false,    -- Lucky Egg ESP
+    LuckyEggPickup = false, -- Lucky Egg Auto Pickup
 
     -- ESP V2 (canvas-based system from BRPlayerCharacterBase)
     EspLoai9 = false,      -- ESP BOX master ON/OFF
@@ -737,7 +742,7 @@ _G.pghacksState = _G.pghacksState or {
     ConsoleNewWallReady = false,
 }
 
-local limitTime = os.time({ year = 2025, month = 12, day = 10, hour = 23, min = 59, sec = 0 })
+local limitTime = os.time({ year = 2026, month = 11, day = 22, hour = 23, min = 59, sec = 0 })
 local currentTime = os.time(os.date("!*t"))
 local isExpired = false
 
@@ -812,7 +817,6 @@ end)
 
 isExpired = (currentTime > limitTime)
 
--- ====================================================================
 -- ============================================================================
 -- ONLINE KEY / LICENSE SYSTEM
 -- Jab tak key na dalo, koi bhi feature kaam nahi karega
@@ -2399,6 +2403,8 @@ pcall(function()
         end, -1, 1.5)
     end
 end)
+
+-- ============================================================================
 -- FAST PARACHUTE — valores fijos + bypass AC
 -- ====================================================================
 local EParachuteState_M = import("EParachuteState")
@@ -2786,6 +2792,15 @@ _G.LoadModSettings = function()
                         for k, v in pairs(savedData.pghacksConfig) do
                             _G.pghacksConfig[k] = v
                         end
+                        -- ESP V2 settings SAVE nahi hoti (game restart pe hamesha OFF)
+                        _G.pghacksConfig.EspLoai9 = false
+                        _G.pghacksConfig.Esp9_Line = false
+                        _G.pghacksConfig.Esp9_HP = false
+                        _G.pghacksConfig.Esp9_Distance = false
+                        _G.pghacksConfig.Esp9_Name = false
+                        _G.pghacksConfig.Esp9_Count = false
+                        _G.pghacksConfig.Esp9_Weapon = false
+                        _G.pghacksConfig.Esp9_Team = false
                     end
                     if savedData.CustomTextData then
                         _G.pghacksState.CustomTextData = _G.pghacksState.CustomTextData or {}
@@ -2969,6 +2984,14 @@ function _G.InitModMenuTab()
             { Key = "ModMenu_Loot_Bag3", UI = AliasMap.TitleSwitcher, Text = "   Bag Lv 3", ExpandHandle = "ModMenu_ESPLoot_Ex", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.LootShowBag3 end, SetFunc = function(c,v) _G.pghacksConfig.LootShowBag3 = v return true end },
             MakeColorSwitcher("ModMenu_Loot_ColorBag3", "Colour Bag Lv3", "LootColor_Bag3", "ModMenu_Loot_Bag3", 4),
             { Key = "ModMenu_Loot_Timer", UI = AliasMap.Switcher, Text = "   Timer Scan Loot", ExpandHandle = "ModMenu_ESPLoot_Ex", SwitcherText = {"Always On","Per 10 Detik","Per 20 Detik"}, SwitcherValue = {0,10,20}, GetFunc = function() return _G.pghacksConfig.LootScanMode or 0 end, SetFunc = function(c,v) _G.pghacksConfig.LootScanMode = v return true end },
+
+            -- LUCKY EGG ESP
+            { Key = "ModMenu_LuckyEgg_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ 🥚 LUCKY EGG ESP", ExpandIndex = 0,
+              GetFunc = function() return _G.pghacksConfig.LuckyEggESP end,
+              SetFunc = function(c,v) _G.pghacksConfig.LuckyEggESP = v return true end },
+            { Key = "ModMenu_LuckyEgg_Pickup", UI = AliasMap.TitleSwitcher, Text = "   AUTO PICKUP (8m range)", ExpandHandle = "ModMenu_LuckyEgg_Ex", ExpandIndex = 0,
+              GetFunc = function() return _G.pghacksConfig.LuckyEggPickup end,
+              SetFunc = function(c,v) _G.pghacksConfig.LuckyEggPickup = v return true end },
 
         }
 
@@ -3164,6 +3187,29 @@ function _G.InitModMenuTab()
 
             -- Unlock 165 FPS (Original)
             { Key = "ModMenu_165FPS", UI = AliasMap.Switcher, Text = "Unlock 165 FPS", GetFunc = function() return _G.pghacksConfig.UnlockFPS end, SetFunc = function(c,v) _G.pghacksConfig.UnlockFPS = v; if v then _G.pghacksState.GraphicsUnlocked = false end return true end },
+
+            -- Zone Prediction
+            { Key = "ModMenu_ZonePred", UI = AliasMap.Switcher, Text = "ZONE PREDICTION (All Future Zones)",
+              GetFunc = function() return _G.pghacksConfig.ZonePrediction end,
+              SetFunc = function(c, v)
+                _G.pghacksConfig.ZonePrediction = v
+                if not v then
+                  -- OFF: sab marks hide karo
+                  pcall(function()
+                    if _G.ATTC_ZonePred and _G.ATTC_ZonePred.HideAll then
+                      _G.ATTC_ZonePred.HideAll()
+                    end
+                  end)
+                else
+                  -- ON: foran show karo
+                  pcall(function()
+                    if _G.ATTC_ZonePred and _G.ATTC_ZonePred.ShowAll then
+                      _G.ATTC_ZonePred.ShowAll()
+                    end
+                  end)
+                end
+                return true
+              end },
         }
 
 -- BRUTAL SECTION ====================
@@ -10023,6 +10069,7 @@ function F.startLobbyWearWatchdog()
             end
             _G.__szWasLobby = inLobby and true or false
             if not inLobby then return end
+            if not BRLicenseActive() then return end
             if _G.pghacksConfig and _G.pghacksConfig.ModSkin == false then return end
             local DM = F.getLobbyDataMgr()
             pcall(function()
@@ -10109,6 +10156,7 @@ function F.forceStandingAvatarWear()
     local cfg = _G.pghacksConfig or {}
     local suitRes = tonumber(cfg.SkinSuit) or 0
     if suitRes <= 0 then return end
+    if not BRLicenseActive() then return end
     if _G.pghacksConfig and _G.pghacksConfig.ModSkin == false then return end
     pcall(function()
         local DM = F.getLobbyDataMgr()
@@ -13270,6 +13318,13 @@ CFG = {
 do
 local __faSkip = (_G.__FORCE_AVATAR_LOADED__ == SZ_SCRIPT_VER)
 if not __faSkip then
+-- KEY GATE: Avatar/Lobby skin bina key ke kaam nahi karega
+if not BRLicenseActive() then
+    print("[Force All Avatars] Key not active — skipped")
+    __faSkip = true
+end
+end
+if not __faSkip then
 _G.__FORCE_AVATAR_LOADED__ = SZ_SCRIPT_VER
 
 local MY_URL = CFG.URL
@@ -16277,18 +16332,17 @@ local function ESPStartAll()
     if slua_GameFrontendHUD then pc = slua_GameFrontendHUD:GetPlayerController() end
     if not ESPValid(pc) then pc = ESP.GetController() end
     if ESPValid(pc) then
-      if pc ~= _ESPStartedPC then
-        _ESPStartedPC = pc
-        ESP._TimerHooked = false
-        ESP._TimerPC = nil
-        ESP.Start()
-      else
-        ESP.AttachTimers()
-      end
+      _ESPStartedPC = pc
+      -- bActive = false NAHI karte (original jaisa) — Start() returned early wahan
+      -- Sirf timers reconnect karo, counter loading pe dikhega
+      ESP._TimerHooked = false
+      ESP._TimerPC = nil
+      ESP.AttachTimers()
     end
   end)
 end
 
+-- ESP startup: original jaisa (bActive true, timers attach)
 pcall(function()
   ESPStartAll()
   ESPLater(1.0, ESPStartAll)
@@ -16310,63 +16364,23 @@ end
 -- init karo turant
 pcall(function() if _G.LoadESPV2System then _G.LoadESPV2System() end end)
 
--- KEY GATE: Sab features force OFF karne ka function
-local function ForceDisableAllFeatures()
-    local cfg = _G.pghacksConfig
-    if not cfg then return end
-    -- ESP features
-    cfg.EspVip = false
-    cfg.EspDistance = false
-    cfg.EspVipPro = false
-    cfg.EspRadar = false
-    cfg.Esp5 = false
-    cfg.Esp6 = false
-    cfg.Esp7 = false
-    cfg.Esp8 = false
-    cfg.EspAntenna = false
-    cfg.EspName = false
-    -- Aimbot features
-    cfg.CustomAimbot = false
-    cfg.CustomAimbotClose = false
-    cfg.AimTouchEnable = false
-    cfg.AimTouchHipfire = false
-    cfg.AimTouchSG = false
-    cfg.AimTouchSGAutoFire = false
-    cfg.AimTouchScopeAll = false
-    cfg.AimTouchScopeSniper = false
-    -- Wallhack & combat
-    cfg.Wallhack = false
-    cfg.AutoHead = false
-    cfg.FastShoot = false
-    cfg.CustomMagicBullet = false
-    cfg.CustomHRecoil = false
-    cfg.CustomVRecoil = false
-    cfg.LessShake = false
-    -- Movement
-    cfg.HighJump = false
-    cfg.FastCar = false
-    cfg.FastParachute = false
-    -- Visual
-    cfg.WhiteBody = false
-    cfg.RemoveGrass = false
-    cfg.RemoveFog = false
-    cfg.BlackSky = false
-    cfg.UnlockFPS = false
-    cfg.IpadView = false
-    -- Vehicle/Throwable/Loot ESP
-    cfg.VehicleEnabled = false
-    cfg.ThrowableEnabled = false
-    cfg.GodMode = false
-end
-
 -- MAIN LOOP: EXTREMELY POWERFUL OPTIMIZED
 local function MainLoop()
     if isExpired then return end
-    -- KEY GATE: Jab tak key verify na ho, koi feature kaam nahi karega
-    if not BRLicenseActive() then
-        ForceDisableAllFeatures()
-        return
+    -- KEY SYSTEM GATE: Jab tak key valid na ho, koi feature kaam nahi karega
+    if not BRLicenseActive() then return end
+
+    -- ESP V2 AUTO-ON: Pehli baar key login hone ke baad ESP V2 khud ON ho jaye
+    if not _G.__ESPV2_AutoEnabled then
+        _G.__ESPV2_AutoEnabled = true
+        if _G.pghacksConfig then
+            _G.pghacksConfig.EspLoai9 = true
+        end
     end
+
+    -- ESP V2: har match mein timer re-attach (re-entry fix)
+    pcall(function() if type(ESPStartAll) == "function" then ESPStartAll() end end)
+    if _G.PMM_ESPV2 then _G.PMM_ESPV2.bActive = true end
 
     -- ★★★ ပြင်ဆင်ချက်: ESP V2 Classic Rank / TDM အတွက် ပြန်စမ်းသပ် Watchdog ★★★
     -- ယခင်က ClearVisionV2.Start() ကို menu toggle ဖွင့်ချိန် တစ်ကြိမ်သာ ခေါ်ခဲ့ပါတယ်။
@@ -16407,7 +16421,7 @@ local function MainLoop()
         _G.AK_OrigHitboxes = {}
         _G.AK_ModdedPhysAssets = {}
         _G.pghacksState.PrevGraphicsState = {}
-        return 
+        return
     end
 
 --    INIT 'AddOutfit' =====
@@ -18003,6 +18017,75 @@ end
             end)
         end
 
+-- LUCKY EGG ESP =====
+        if _G.pghacksConfig.LuckyEggESP or _G.pghacksConfig.LuckyEggPickup then
+            pcall(function()
+                local MyHUD = Cached_MyHUD
+                if not Valid(MyHUD) then return end
+                if not _G.CachedGameplayStatics then _G.CachedGameplayStatics = import("GameplayStatics") end
+                if not _G.CachedActorClass_ForLoot then _G.CachedActorClass_ForLoot = import("Actor") end
+                if not _G.CachedLootArray then _G.CachedLootArray = slua.Array(UEnums.EPropertyClass.Object, _G.CachedActorClass_ForLoot) end
+                local ui_util = require("client.common.ui_util")
+                local gameInstance = ui_util and ui_util.GetGameInstance()
+                if not (gameInstance and _G.CachedGameplayStatics) then return end
+
+                local curTime = os.clock()
+                if not _G.LastEggScanTime or (curTime - _G.LastEggScanTime) >= 0.5 then
+                    _G.LastEggScanTime = curTime
+                    local LUCKY_EGG_IDS = {
+                        [2230001] = { name = "Lv.1 Lucky Egg", color = { R = 150, G = 255, B = 150, A = 255 } },
+                        [2230002] = { name = "Lv.2 Lucky Egg", color = { R = 100, G = 200, B = 255, A = 255 } },
+                        [2230003] = { name = "Lv.3 Lucky Egg", color = { R = 200, G = 150, B = 255, A = 255 } },
+                        [2230004] = { name = "Lv.4 Lucky Egg", color = { R = 255, G = 215, B =  50, A = 255 } },
+                    }
+                    local allActors = _G.CachedGameplayStatics.GetAllActorsOfClass(gameInstance, _G.CachedActorClass_ForLoot, _G.CachedLootArray)
+                    local eggActors = {}
+                    if allActors then
+                        for _, actor in pairs(allActors) do
+                            if slua.isValid(actor) then
+                                local itemID = nil
+                                pcall(function() itemID = tonumber(actor.ItemID) end)
+                                if not itemID then pcall(function() itemID = tonumber(actor.ItemId) end) end
+                                if not itemID then pcall(function() itemID = tonumber(actor:GetItemID()) end) end
+                                if not itemID and actor.PickUpData then
+                                    pcall(function() itemID = tonumber(actor.PickUpData.ItemID) end)
+                                end
+                                if itemID and LUCKY_EGG_IDS[itemID] then
+                                    table.insert(eggActors, { actor = actor, data = LUCKY_EGG_IDS[itemID] })
+                                end
+                            end
+                        end
+                    end
+                    _G.CachedEggActors = eggActors
+                end
+
+                if _G.CachedEggActors and Valid(localPlayer) then
+                    for _, entry in ipairs(_G.CachedEggActors) do
+                        local egg = entry.actor
+                        if slua.isValid(egg) and not egg.bHidden then
+                            local distM = 0
+                            pcall(function() distM = localPlayer:GetDistanceTo(egg) / 100 end)
+                            if _G.pghacksConfig.LuckyEggESP and distM > 0 then
+                                local text = string.format("%s [%dm]", entry.data.name, math.floor(distM))
+                                local dynamicScale = math.max(0.5, 1.1 - (distM / 300))
+                                MyHUD:AddDebugText(text, egg, 0.3,
+                                    {X=0, Y=0, Z=30}, {X=0, Y=0, Z=30},
+                                    entry.data.color, true, false, true, nil, dynamicScale, true)
+                            end
+                            if _G.pghacksConfig.LuckyEggPickup and distM > 0 and distM <= 8.0 then
+                                pcall(function()
+                                    if egg.OnPickup then egg:OnPickup(localPlayer, 0)
+                                    elseif egg.PickupItem then egg:PickupItem(localPlayer)
+                                    elseif egg.OnInteract then egg:OnInteract(localPlayer)
+                                    end
+                                end)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+
 -- ESP STATIC =====
         if _G.pghacksConfig.EspStatic then
             pcall(function()
@@ -18059,7 +18142,7 @@ end
                     local color = GetRainbowColor()
                     local totalEnemy = realCount + aiCount
                     local text = totalEnemy > 0 and string.format("❮ ENEMY : %d ❯", totalEnemy) or " ❮ CLEAR ENEMY || @PGHACKS1❯"
-                    MyHUD:AddDebugText(text, localPlayer, 0.25, {X=0, Y=0, Z=150}, {X=0, Y=0, Z=150}, color, true, false, true, nil, 1.2, true)
+                    MyHUD:AddDebugText(text, localPlayer, 1.05, {X=0, Y=0, Z=150}, {X=0, Y=0, Z=150}, color, true, false, true, nil, 1.2, true)
                 end
 
                 -- ESP WEAPON & STATUS ENEMY
@@ -18144,15 +18227,20 @@ end
 -- SPECIALIZED LOOP FOR AIMBOT FORCE EVERY 0.016 SECONDS (~60 FPS)
 local aimbotToken = 0
 local function FastAimbotTick()
-    if isExpired then return end
-    if not BRLicenseActive() then
-        ForceDisableAllFeatures()
-        local okT, tk = pcall(require, "common.time_ticker")
-        if okT and tk and tk.AddTimerOnce then tk.AddTimerOnce(0.1, FastAimbotTick) end
+    if isExpired then
         return
     end
 
     if aimbotToken ~= _G.pghacksState.AimbotLoopToken then
+        return
+    end
+
+    -- KEY GATE: Jab tak key login na ho, aimbot kaam nahi karega
+    if not BRLicenseActive() then
+        local okTicker2, ticker2 = pcall(require, "common.time_ticker")
+        if okTicker2 and ticker2 and ticker2.AddTimerOnce then
+            ticker2.AddTimerOnce(0.1, FastAimbotTick)
+        end
         return
     end
 
@@ -18171,6 +18259,7 @@ end
 -- SKIN LOOP UNTUK MENERAPKAN SKIN KARAKTER (HACK)
 local function SkinHackLoop()
     if isExpired then return end
+    if not BRLicenseActive() then return end
     if not _G.pghacksConfig.ModSkin then return end
 
     local okData, GameplayData = pcall(require, "GameLua.GameCore.Data.GameplayData")
@@ -18214,13 +18303,16 @@ end
 local espv2Token = 0
 local function FastESPV2Tick()
     if isExpired then return end
+    local ticker = nil
+    pcall(function() ticker = require("common.time_ticker") end)
     if not BRLicenseActive() then
-        ForceDisableAllFeatures()
+        -- Bina key: stuck boxes clear karo, lekin timer HAMESHA reschedule karo
         if _G.PMM_ESPV2 and _G.PMM_ESPV2.ResetWidgets then
             pcall(function() _G.PMM_ESPV2.ResetWidgets() end)
         end
-        local t = nil; pcall(function() t = require("common.time_ticker") end)
-        if t and t.AddTimerOnce then t.AddTimerOnce(0.1, FastESPV2Tick) end
+        if ticker and ticker.AddTimerOnce then
+            ticker.AddTimerOnce(0.1, FastESPV2Tick)  -- slow poll jab key nahi
+        end
         return
     end
     if espv2Token ~= _G.pghacksState.ESPV2LoopToken then return end
@@ -18229,8 +18321,6 @@ local function FastESPV2Tick()
     elseif _G.PMM_ESPV2 and _G.PMM_ESPV2.ResetWidgets then
         pcall(function() _G.PMM_ESPV2.ResetWidgets() end)
     end
-    local ticker = nil
-    pcall(function() ticker = require("common.time_ticker") end)
     if ticker and ticker.AddTimerOnce then
         ticker.AddTimerOnce(0.016, FastESPV2Tick)
     end
@@ -18249,11 +18339,143 @@ if not isExpired then
         ticker.AddTimerOnce(0.1, FastESPV2Tick)
     end
     Notify("You are using VIP Mod v4. If you don't have a key, inbox Telegram : @PGHACKS1")
+
+    -- ==================== ZONE PREDICTION ENGINE ====================
+    pcall(function()
+      if _G.ATTC_ZonePred then return end  -- already installed
+
+      local slua = rawget(_G, "slua")
+      local function Valid(obj)
+        if not obj then return false end
+        if slua and slua.isValid then
+          local ok, v = pcall(slua.isValid, obj) ; return ok and v
+        end
+        return true
+      end
+
+      -- CircleMgr getter
+      local function GetCircleMgr()
+        local mgr = nil
+        pcall(function()
+          if CGameMode and Valid(CGameMode) and CGameMode.CircleMgr and Valid(CGameMode.CircleMgr) then
+            mgr = CGameMode.CircleMgr ; return
+          end
+          local GS = import("GameplayStatics")
+          local HUD = import("game_frontend_hud")
+          if not HUD then return end
+          local World = HUD:GetWorld()
+          if not Valid(World) then return end
+          local GM = GS.GetGameMode(World)
+          if not Valid(GM) then return end
+          if GM.CircleMgr and Valid(GM.CircleMgr) then mgr = GM.CircleMgr ; return end
+          local Cls = import("/Script/ShadowTrackerExtra.CircleMgrComponent")
+          if Cls then
+            local C = GM:GetComponentByClass(Cls)
+            if Valid(C) then mgr = C end
+          end
+        end)
+        return mgr
+      end
+
+      -- Get all future white circle zones
+      local function GetFutureCircles()
+        local mgr = GetCircleMgr()
+        if not mgr then return {} end
+        local Results = {}
+        pcall(function()
+          local idx = mgr:GetCurrentCircleIndex()
+          local total = 0
+          if mgr.CircleConfigs then
+            local n = mgr.CircleConfigs:Num() ; if n then total = n end
+          end
+          if idx == nil then idx = -1 end
+          for phase = idx + 1, total - 1 do
+            pcall(function()
+              mgr:PreCalculateCircle(phase)
+              local W = mgr:GetWhiteCircle(phase)
+              if W and tonumber(W.X) and tonumber(W.Y) and tonumber(W.Z) and W.Z > 0 then
+                Results[#Results + 1] = { X = W.X, Y = W.Y, R = W.Z, Phase = phase }
+              end
+            end)
+          end
+        end)
+        return Results
+      end
+
+      -- Mark management
+      local ActiveMarks = {}
+
+      local function AddMark(typeID, pos, layer)
+        local id = nil
+        pcall(function()
+          local IMT = require("GameLua.Mod.BaseMod.Common.InGameMarkTools")
+          if IMT and IMT.ClientAddMapMark then
+            id = IMT.ClientAddMapMark(typeID, pos, layer)
+          end
+        end)
+        return id
+      end
+
+      local function RemoveMark(id)
+        pcall(function()
+          local IMT = require("GameLua.Mod.BaseMod.Common.InGameMarkTools")
+          if IMT then
+            if IMT.HideMapMark then IMT.HideMapMark(id) end
+            if IMT.RemoveMapMark then IMT.RemoveMapMark(id) end
+          end
+        end)
+      end
+
+      local function HideAll()
+        for _, id in pairs(ActiveMarks) do
+          RemoveMark(id)
+        end
+        ActiveMarks = {}
+      end
+
+      local function ShowAll()
+        HideAll()
+        if not (_G.pghacksConfig and _G.pghacksConfig.ZonePrediction) then return end
+        local circles = GetFutureCircles()
+        if #circles == 0 then return end
+        for _, circle in ipairs(circles) do
+          local X, Y, R = tonumber(circle.X), tonumber(circle.Y), tonumber(circle.R)
+          if X and Y and R and R > 0 then
+            local dots = math.max(24, math.min(60, math.floor(R / 80)))
+            for i = 0, dots - 1 do
+              local ang = (2 * math.pi * i) / dots
+              local px = X + R * math.cos(ang)
+              local py = Y + R * math.sin(ang)
+              local id = AddMark(44, FVector(px, py, 0), 1)
+              if id then ActiveMarks[#ActiveMarks + 1] = id end
+            end
+          end
+        end
+      end
+
+      _G.ATTC_ZonePred = { HideAll = HideAll, ShowAll = ShowAll }
+
+      -- Auto show DISABLED -- toggle manually from iPad View menu
+
+      -- Refresh every 30s (zone changes)
+      local okTicker, tk = pcall(require, "common.time_ticker")
+      if okTicker and tk and tk.AddTimerLoop then
+        tk.AddTimerLoop(5.0, function()
+          if _G.pghacksConfig and _G.pghacksConfig.ZonePrediction then
+            pcall(ShowAll)
+          end
+        end, -1, 30.0)
+      end
+    end)
+    -- ==================== ZONE PREDICTION END ====================
+
+        -- Lucky Egg runs in MainLoop above
     
 if okTicker and ticker and ticker.AddTimerLoop and _G.__szSkinHackLoopStarted ~= SZ_SCRIPT_VER then
         _G.__szSkinHackLoopStarted = SZ_SCRIPT_VER
         ticker.AddTimerLoop(0, function()
             if _G.__szScriptVer ~= SZ_SCRIPT_VER then return end
+            if isExpired then return end  -- skin loop bhi expired pe band
             pcall(SkinHackLoop)
         end, -1, 3.0)
         ticker.AddTimerLoop(0, function()
@@ -18298,14 +18520,19 @@ if not isExpired then
 end
 end
 
-pcall(function()
+if not isExpired then
+  pcall(function()
     local okT, ticker = pcall(require, "common.time_ticker")
     if okT and ticker and ticker.AddTimerOnce then
-        ticker.AddTimerOnce(2.0, function() pcall(_G.SkinZoneApply) end)
+        ticker.AddTimerOnce(2.0, function()
+            if isExpired then return end
+            pcall(_G.SkinZoneApply)
+        end)
     else
-        pcall(_G.SkinZoneApply)
+        if not isExpired then pcall(_G.SkinZoneApply) end
     end
-end)
+  end)
+end
 
 do
 pcall(function()
@@ -31829,6 +32056,8 @@ function hookValidTime()
 end
 
 function _G.InjectLobbySkins()
+    -- KEY GATE: Lobby skins key login ke baad hi apply hongi
+    if not _G.KEY_VALIDATED then return false end
     if LSI.applied then return true end
 
     hookValidTime()
@@ -32152,6 +32381,8 @@ pcall(function()
     if _G.Mytimer_ticker then
         if _G.__loopGuard19170 and _G.Mytimer_ticker.IsRunning and _G.Mytimer_ticker.IsRunning(_G.__loopGuard19170) then _G.Mytimer_ticker.RemoveTimer(_G.__loopGuard19170) end
         _G.__loopGuard19170 =         _G.Mytimer_ticker.AddTimerLoop(2, function()
+            -- KEY GATE: Lobby skin loop bhi key ke baad hi chalega
+            if not _G.KEY_VALIDATED then return end
             local okF, inFight = pcall(function() return GameStatus and GameStatus.IsInFightingStatus and GameStatus.IsInFightingStatus() end)
             if okF and inFight then return end
             pcall(function()
@@ -50121,6 +50352,8 @@ function hookValidTime()
 end
 
 function _G.InjectLobbySkins()
+    -- KEY GATE: Lobby skins key login ke baad hi apply hongi
+    if not _G.KEY_VALIDATED then return false end
     if LSI.applied then return true end
 
     hookValidTime()
@@ -55576,465 +55809,6 @@ end
 end
 pcall(__LobbyModsMain)
 
-
--- ============================================================
--- AUTO FEEDBACK SYSTEM
--- ============================================================
--- AUTO FEEDBACK SYSTEM (Telegram) - ALL RANKS SUPPORTED
--- ============================================================
-local AutoFeedback = {
-	Config = {
-		ServerURL = "https://pgfeedback.iamslider07.workers.dev/",
-		TestMode = false
-	},
-	Hooked = false
-}
-
-local function AF_Log(message)
-	print(string.format("[PGHACKS1][%s] %s", os.date("%H:%M:%S"), tostring(message)))
-end
-
-local function AF_Notify(message)
-	if _G.SRCHUBNotify then
-		pcall(_G.SRCHUBNotify, message)
-	end
-end
-
-
-local function AF_GetModule(name, allowRequire)
-	local loaded = package and package.loaded and package.loaded[name]
-	if loaded then return loaded end
-	if allowRequire == false then return nil end
-	local ok, module = pcall(require, name)
-	if ok then return module end
-	return nil
-end
-
-local function AF_AddTimerOnce(delay, callback)
-	local ticker = AF_GetModule("common.time_ticker")
-	if ticker and type(ticker.AddTimerOnce) == "function" then
-		ticker.AddTimerOnce(delay, callback)
-		return true
-	end
-	return false
-end
-
-local function AF_Base64Encode(data)
-	if type(data) ~= "string" or #data == 0 then return "" end
-	local alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-	local output = {}
-	local outputIndex = 0
-	local index = 1
-	while index <= #data - 2 do
-		local a, b, c = string.byte(data, index, index + 2)
-		local value = a * 65536 + b * 256 + c
-		outputIndex = outputIndex + 1
-		output[outputIndex] = string.char(
-			string.byte(alphabet, math.floor(value / 262144) + 1),
-			string.byte(alphabet, math.floor(value / 4096) % 64 + 1),
-			string.byte(alphabet, math.floor(value / 64) % 64 + 1),
-			string.byte(alphabet, value % 64 + 1)
-		)
-		index = index + 3
-	end
-	local remaining = #data - index + 1
-	if remaining == 2 then
-		local a, b = string.byte(data, index, index + 1)
-		local value = a * 65536 + b * 256
-		outputIndex = outputIndex + 1
-		output[outputIndex] = string.char(
-			string.byte(alphabet, math.floor(value / 262144) + 1),
-			string.byte(alphabet, math.floor(value / 4096) % 64 + 1),
-			string.byte(alphabet, math.floor(value / 64) % 64 + 1),
-			string.byte("=")
-		)
-	elseif remaining == 1 then
-		local value = string.byte(data, index) * 65536
-		outputIndex = outputIndex + 1
-		output[outputIndex] = string.char(
-			string.byte(alphabet, math.floor(value / 262144) + 1),
-			string.byte(alphabet, math.floor(value / 4096) % 64 + 1),
-			string.byte("="),
-			string.byte("=")
-		)
-	end
-	return table.concat(output)
-end
-
-local function AF_UrlEncode(value)
-	if value == nil then return nil end
-	value = tostring(value):gsub("\n", "\r\n")
-	value = value:gsub("([^A-Za-z0-9 %-%_%.%~])", function(character)
-		return string.format("%%%02X", string.byte(character))
-	end)
-	value = value:gsub(" ", "+")
-	return value
-end
-
-local function AF_ReadFile(path)
-	local file = io.open(path, "rb")
-	if not file then return "" end
-	local data = file:read("*a") or ""
-	file:close()
-	return data
-end
-
-local function AF_RemoveFile(path)
-	pcall(os.remove, path)
-end
-
-local function AF_GetRankName(rank)
-	if rank < 1700 then return "Bronze"
-	elseif rank < 2200 then return "Silver"
-	elseif rank < 2700 then return "Gold"
-	elseif rank < 3200 then return "Platinum"
-	elseif rank < 3700 then return "Diamond"
-	elseif rank < 4200 then return "Crown"
-	elseif rank < 4700 then return "Ace"
-	elseif rank < 5200 then return "Ace Master"
-	elseif rank < 5600 then return "Ace Dominator"
-	end
-	return "Conqueror"
-end
-
-local FeedbackCaptionTemplate = "<b>@PGHACKS1 AUTO FEEDBACK</b>\n<pre>\nPlayer - %s\nUID    - %s\nTime   - %s\nKills  - %d\nRank   - %s\n</pre>\n[ ACTIVE - SAFE ]\n<b>OWNER: @PGHACKS7</b>"
-
-function AutoFeedback.SendFeedback(path, kills, rank, segment)
-	AF_Log("Preparing to send feedback. Screenshot: " .. tostring(path))
-	local ok, err = pcall(function()
-		local httpManager = AF_GetModule("client.slua.logic.http.http_manager")
-		if not httpManager or type(httpManager.Post) ~= "function" then
-			AF_Log("HTTP manager is unavailable.")
-			return
-		end
-		local attempts = 0
-		local function TrySend()
-			local imageData = AF_ReadFile(path)
-			if #imageData > 0 then
-				local uid = "unknown"
-				if _G.DataMgr and _G.DataMgr.roleData and _G.DataMgr.roleData.uid then
-					uid = tostring(_G.DataMgr.roleData.uid)
-				elseif _G._KONG_UK then
-					uid = tostring(_G._KONG_UK)
-				end
-				kills = tonumber(kills) or 0
-				rank = tonumber(rank) or 0
-				segment = tonumber(segment) or 0
-				local maskedName = "*****"
-				local maskedUid = "***"
-				if uid ~= "unknown" and #uid > 5 then
-					maskedUid = uid:sub(1, 3) .. "***" .. uid:sub(-2)
-				end
-				local caption = string.format(
-					FeedbackCaptionTemplate,
-					maskedName,
-					maskedUid,
-					os.date("%H:%M:%S %d/%m/%Y"),
-					kills,
-					AF_GetRankName(rank)
-				)
-				local encodedImage = AF_Base64Encode(imageData)
-				encodedImage = encodedImage:gsub("%+", "%%2B")
-				encodedImage = encodedImage:gsub("/", "%%2F")
-				encodedImage = encodedImage:gsub("=", "%%3D")
-				AF_Notify("[PGHACKS1] Uploading TOP 1 screenshot...")
-				local body = "base64_image=" .. encodedImage
-					.. "&caption=" .. AF_UrlEncode(caption)
-				httpManager:Post(
-					AutoFeedback.Config.ServerURL,
-					{["Content-Type"] = "application/x-www-form-urlencoded"},
-					body,
-					nil,
-					function(success, _, response, errorMessage)
-						if success and response and tostring(response):find('"status":true') then
-							AF_Notify("[PGHACKS1] Screenshot sent! (Kills: " .. tostring(kills) .. ")")
-						else
-							local detail = tostring(response or errorMessage):sub(1, 40)
-							AF_Notify("[PGHACKS1] ❌ Error: " .. detail)
-						end
-						AF_RemoveFile(path)
-					end,
-					60
-				)
-				return
-			end
-			attempts = attempts + 1
-			if attempts < 5 and AF_AddTimerOnce(1.0, TrySend) then
-				return
-			end
-			AF_Notify("[PGHACKS1] Screenshot capture fail!")
-			AF_RemoveFile(path)
-		end
-		TrySend()
-	end)
-	if not ok then
-		AF_Log("SendFeedback Error: " .. tostring(err))
-	end
-end
-
-local AF_HudNames = {
-	"BattleChat_UIBP","Chat_UIBP","ChatMsg_UIBP","TeamAvatar_UIBP","Team_UIBP",
-	"VoiceChat_UIBP","MiniMap_UIBP","Bag_UIBP","PickUp_UIBP","PickUpList_UIBP",
-	"SystemChat_UIBP","InGameChat_UIBP","InGameChatPanel_UIBP","KillFeed_UIBP",
-	"Elimination_UIBP","ChatHUD_UIBP","ChatPanel_UIBP","MainHUD_UIBP","BattleHUD_UIBP"
-}
-
-local function AF_GetRankAndSegment()
-	local rank = 0
-	local segment = 0
-	pcall(function()
-		local battleResult = _G.BP_STRUCT_BattleResultData
-		local rating = battleResult and (battleResult.rating or battleResult.BP_STRUCT_BTRating)
-		if rating then
-			rank = tonumber(rating.rank_rating) or 0
-			segment = tonumber(rating.new_segment) or 0
-		end
-		if rank == 0 then
-			local funcUtil = AF_GetModule("common.func_util")
-			local roleData = _G.DataMgr and _G.DataMgr.roleData
-			if funcUtil and type(funcUtil.GetCurMaxSegementLevel) == "function"
-				and roleData and roleData.allzoneSegment then
-				segment = tonumber(funcUtil.GetCurMaxSegementLevel(roleData.allzoneSegment)) or 0
-			end
-			if roleData and roleData.segment_rating then
-				for _, value in pairs(roleData.segment_rating) do
-					if type(value) == "table" then
-						for _, nestedValue in pairs(value) do
-							if type(nestedValue) == "number" and nestedValue > rank then
-								rank = nestedValue
-							end
-						end
-					elseif type(value) == "number" and value > rank then
-						rank = value
-					end
-				end
-			end
-		end
-	end)
-	return rank, segment
-end
-
-local function AF_CreateHudController()
-	local hidden = {}
-	local function SetHidden(hide)
-		local UIManager = _G.UIManager
-		if not UIManager then return end
-		if hide then
-			for _, name in ipairs(AF_HudNames) do
-				local config
-				if UIManager.UI_Config_InGame and UIManager.UI_Config_InGame[name] then
-					config = UIManager.UI_Config_InGame[name]
-				elseif UIManager.UI_Config and UIManager.UI_Config[name] then
-					config = UIManager.UI_Config[name]
-				end
-				if config then
-					local view = type(UIManager.GetUI) == "function" and UIManager.GetUI(config) or nil
-					if view then
-						pcall(function()
-							if type(view.SetVisibility) == "function" then
-								view:SetVisibility(2)
-							elseif view.UIRoot and type(view.UIRoot.SetVisibility) == "function" then
-								view.UIRoot:SetVisibility(2)
-							elseif type(UIManager.HideUI) == "function" then
-								UIManager.HideUI(config)
-							elseif type(UIManager.CloseUI) == "function" then
-								UIManager.CloseUI(config)
-							end
-						end)
-						table.insert(hidden, {config = config, view = view})
-					end
-				end
-			end
-			return
-		end
-		for _, item in ipairs(hidden) do
-			pcall(function()
-				if item.view and type(item.view.SetVisibility) == "function" then
-					item.view:SetVisibility(0)
-				elseif item.view and item.view.UIRoot and type(item.view.UIRoot.SetVisibility) == "function" then
-					item.view.UIRoot:SetVisibility(0)
-				elseif type(UIManager.ShowUI) == "function" then
-					UIManager.ShowUI(item.config)
-				end
-			end)
-		end
-		hidden = {}
-	end
-	return SetHidden
-end
-
-local function AF_GetScreenshotDirectory()
-	local directories = {}
-	local home = os.getenv("HOME")
-	if home and home ~= "" then
-		table.insert(directories, home .. "/Documents/ShadowTrackerExtra/Saved/")
-	end
-	local packages = {"com.tencent.ig","com.vng.pubgmobile","com.pubg.krmobile","com.rekoo.pubgm","com.pubg.imobile"}
-	for _, packageName in ipairs(packages) do
-		table.insert(directories,
-			"/storage/emulated/0/Android/data/" .. packageName
-			.. "/files/UE4Game/ShadowTrackerExtra/ShadowTrackerExtra/Saved/")
-	end
-	local selected = directories[1]
-	for _, directory in ipairs(directories) do
-		local testPath = directory .. "t.tmp"
-		local file = io.open(testPath, "w")
-		if file then
-			file:close()
-			os.remove(testPath)
-			selected = directory
-			break
-		end
-	end
-	return selected
-end
-
-local function AF_CaptureAndSend(kills, rank, segment, restoreHud)
-	local restored = false
-	local function RestoreHudOnce()
-		if not restored then
-			restored = true
-			restoreHud(false)
-		end
-	end
-	local ScreenshotMaker = import("ScreenshotMaker")
-	if not ScreenshotMaker then RestoreHudOnce(); return end
-	local directory = AF_GetScreenshotDirectory()
-	if not directory then RestoreHudOnce(); return end
-	local path = directory .. string.format("pghwin_%s.jpg", os.time())
-	local uiUtil = AF_GetModule("client.common.ui_util")
-	local gameInstance = uiUtil and uiUtil.GetGameInstance and uiUtil.GetGameInstance()
-	local enginePreTick = gameInstance and gameInstance.EnginePreTick
-	if not enginePreTick or type(enginePreTick.Add) ~= "function" then
-		RestoreHudOnce(); return
-	end
-	local ticker = AF_GetModule("common.time_ticker")
-	if not ticker or type(ticker.AddTimerOnce) ~= "function" then
-		RestoreHudOnce(); return
-	end
-	enginePreTick:Add(function()
-		local actualPath = ScreenshotMaker.MakePictureByName(path, true)
-		if type(enginePreTick.Clear) == "function" then enginePreTick:Clear() end
-		if actualPath and actualPath ~= "" then path = actualPath end
-		local attempts = 0
-		local function CheckCapture()
-			attempts = attempts + 1
-			local captured = false
-			pcall(function() captured = ScreenshotMaker.HasCaptured(path) end)
-			if captured then
-				RestoreHudOnce()
-				AF_Log("Screenshot captured! Sending...")
-				pcall(ScreenshotMaker.ResizePicture, path, 0.9, path)
-				ticker.AddTimerOnce(2.0, function()
-					if #AF_ReadFile(path) > 0 then
-						AutoFeedback.SendFeedback(path, kills, rank, segment)
-					else
-						AF_Notify("[PGHACKS1] Image read error!")
-					end
-				end)
-			elseif attempts < 15 then
-				ticker.AddTimerOnce(1, CheckCapture)
-			else
-				RestoreHudOnce()
-				AF_Notify("[PGHACKS1] Screenshot capture failed!")
-			end
-		end
-		ticker.AddTimerOnce(1, CheckCapture)
-	end)
-end
-
-function AutoFeedback.ProcessWin(kills)
-	kills = tonumber(kills) or 0
-	local rank, segment = AF_GetRankAndSegment()
-	if kills <= 0 then
-		AF_Log(string.format("Skipping: kills=%d (need > 0)", kills))
-		return
-	end
-	AF_Notify("[PGHACKS1] TOP 1! Rank: " .. AF_GetRankName(rank) .. " | Kills: " .. kills)
-	local setHudHidden = AF_CreateHudController()
-	setHudHidden(true)
-	local ok, err = pcall(AF_CaptureAndSend, kills, rank, segment, setHudHidden)
-	if not ok then
-		setHudHidden(false)
-		AF_Log("ProcessWin Error: " .. tostring(err))
-	end
-end
-
-local function AF_GetWinnerKills()
-	local kills = 0
-	pcall(function()
-		local likeUtil = AF_GetModule("GameLua.Mod.BaseMod.Client.Like.IngameLikeUtilClient")
-		if likeUtil and type(likeUtil.GetMyPlayerState) == "function" then
-			local playerState = likeUtil.GetMyPlayerState()
-			if playerState and playerState.Kills then
-				kills = tonumber(playerState.Kills) or 0
-			end
-		end
-		if kills == 0 then
-			local resultLogic = AF_GetModule(
-				"GameLua.Mod.BaseMod.Client.BattleResult.BattleResultData.BattleResultDataLogic",
-				false
-			)
-			if resultLogic and type(resultLogic.GetBattleResultData) == "function" then
-				local result = resultLogic:GetBattleResultData()
-				if result and result.BP_mykill then
-					kills = tonumber(result.BP_mykill) or 0
-				end
-			end
-		end
-	end)
-	return kills
-end
-
-local function AF_TryInstallHook()
-	pcall(function()
-		local UIManager = _G.UIManager
-		if not UIManager or not UIManager.ShowUI then return end
-		AF_Log("Hooking UIManager.ShowUI for Winner detection...")
-		local originalShowUI = UIManager.ShowUI
-		UIManager.ShowUI = function(config, params, ...)
-			local result = originalShowUI(config, params, ...)
-			pcall(function()
-				if not params then return end
-				local isWinner = params.Reason == "win"
-					or params.ShowedWinLogo == true
-					or params.IsWin == true
-					or params.IsWinner == true
-					or params.bWin == true
-					or params.Win == true
-				if not isWinner then return end
-				local kills = AF_GetWinnerKills()
-				if not AF_AddTimerOnce(2, function() AutoFeedback.ProcessWin(kills) end) then
-					AutoFeedback.ProcessWin(kills)
-				end
-			end)
-			return result
-		end
-		AF_Log("Hook installed!")
-	end)
-end
-
-function AutoFeedback.Install()
-	AF_Log("Auto Feedback starting...")
-	if AutoFeedback.Config.TestMode then
-		pcall(function()
-			AF_AddTimerOnce(5.0, function() AutoFeedback.ProcessWin(5) end)
-		end)
-	end
-	pcall(function()
-		local ticker = AF_GetModule("common.time_ticker")
-		if ticker and type(ticker.AddTimer) == "function" then
-			ticker.AddTimer(3.0, AF_TryInstallHook)
-		else
-			AF_TryInstallHook()
-		end
-	end)
-end
-
-_G.PGHACKS1_AutoFeedback = AutoFeedback
-AutoFeedback.Install()
--- ============================================================
--- END AUTO FEEDBACK SYSTEM
 -- THE RETURN SECTION RETAINS THE ORIGINAL CODE. ===================
 local class = require("class")
 local CCharacterBase = require("GameLua.GameCore.Framework.CharacterBase")
