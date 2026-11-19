@@ -16316,8 +16316,6 @@ pcall(function() if _G.LoadESPV2System then _G.LoadESPV2System() end end)
 -- MAIN LOOP: EXTREMELY POWERFUL OPTIMIZED
 local function MainLoop()
     if isExpired then return end
-    -- Menu show hone se pehle koi feature kaam nahi karega
-    if not _G.pghacksMenuAlreadyShown then return end
     -- KEY GATE: Jab tak key verify na ho, koi feature kaam nahi karega
     if not BRLicenseActive() then return end
 
@@ -18098,11 +18096,6 @@ end
 local aimbotToken = 0
 local function FastAimbotTick()
     if isExpired then return end
-    if not _G.pghacksMenuAlreadyShown then
-        local okT, tk = pcall(require, "common.time_ticker")
-        if okT and tk and tk.AddTimerOnce then tk.AddTimerOnce(0.5, FastAimbotTick) end
-        return
-    end
     if not BRLicenseActive() then
         local okT, tk = pcall(require, "common.time_ticker")
         if okT and tk and tk.AddTimerOnce then tk.AddTimerOnce(0.1, FastAimbotTick) end
@@ -18171,12 +18164,6 @@ end
 local espv2Token = 0
 local function FastESPV2Tick()
     if isExpired then return end
-    -- Menu show hone se pehle ESP V2 kaam nahi karega
-    if not _G.pghacksMenuAlreadyShown then
-        local t = nil; pcall(function() t = require("common.time_ticker") end)
-        if t and t.AddTimerOnce then t.AddTimerOnce(0.5, FastESPV2Tick) end
-        return
-    end
     if not BRLicenseActive() then
         local t = nil; pcall(function() t = require("common.time_ticker") end)
         if t and t.AddTimerOnce then t.AddTimerOnce(0.1, FastESPV2Tick) end
