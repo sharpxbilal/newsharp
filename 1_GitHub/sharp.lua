@@ -2863,11 +2863,6 @@ function _G.InitModMenuTab()
         }
 
         -- ==================== DEFINE MENU PAGE ====================
-        SettingPageDefine.ModMenu = {
-            Key = "ModMenu",
-            Text= "@PGHACKS1 MENU",
-            UIKey = "Setting_Page_Privacy", 
-
         -- ==================== ESP V2 STACK ====================
         local StackESPV2 = {
             { Key = "ModMenu_ESP9_Title", UI = AliasMap.Title, Text = "❏ ESP V2 BOX" },
@@ -2889,7 +2884,6 @@ function _G.InitModMenuTab()
             { Key = "ModMenu_ESP9_Radar",  UI = AliasMap.TitleSwitcher, Text = "   360 MARKER",     ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Distance  end, SetFunc = function(c,v) _G.PGConfig.Esp9_Distance  = v return true end },
             { Key = "ModMenu_ESP9_Name",   UI = AliasMap.TitleSwitcher, Text = "   ESP NAME",        ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Name      end, SetFunc = function(c,v) _G.PGConfig.Esp9_Name      = v return true end },
         }
-
 
         -- ==================== BRUTAL STACK ====================
         local StackBrutal = {
@@ -2970,6 +2964,10 @@ function _G.InitModMenuTab()
               end },
         }
 
+        SettingPageDefine.ModMenu = {
+            Key = "ModMenu",
+            Text= "@PGHACKS1 MENU",
+            UIKey = "Setting_Page_Privacy", 
             Category = {
                 { Key = "Cat_SkinMod", Text= "SKIN CUSTOM", Stack = StackSkinMod },
                 { Key = "Cat_Aimbot_Force", Text= "UR/ROOM-TOUCH AIM", Stack = StackAimbotForce },
