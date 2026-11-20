@@ -2918,13 +2918,12 @@ function _G.InitModMenuTab()
         -- ==================== ESP VISUAL ====================
         local StackESPVisual = {
             { Key = "ModMenu_ESP1",     UI = AliasMap.Switcher, Text = "ESP (AUTO SETUP)",    GetFunc = function() return _G.PGConfig.EspVip      end, SetFunc = function(c,v) _G.PGConfig.EspVip      = v; pcall(function() _G.SaveModSettings() end) return true end },
-            { Key = "ModMenu_ESP4",     UI = AliasMap.Switcher, Text = "ESP MARK - 360 Radar",GetFunc = function() return _G.PGConfig.EspRadar     end, SetFunc = function(c,v) _G.PGConfig.EspRadar     = v; pcall(function() _G.SaveModSettings() end) return true end },
-            -- ==================== ESP V2 (inline, no separate tab) ====================
+            { Key = "ModMenu_ESP4",     UI = AliasMap.Switcher, Text = "ESP V2 360 MARK ",GetFunc = function() return _G.PGConfig.EspRadar     end, SetFunc = function(c,v) _G.PGConfig.EspRadar     = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP9_C",   UI = AliasMap.Switcher, Text = "ESP V2 COUNTER", GetFunc = function() return _G.PGConfig.Esp9_Count   end, SetFunc = function(c,v) _G.PGConfig.Esp9_Count   = v; pcall(function() _G.SaveModSettings() end) return true end },
             { Key = "ModMenu_ESP9_V2",  UI = AliasMap.Switcher, Text = "ESP V2 BOX",          GetFunc = function() return _G.PGConfig.EspLoai9     end, SetFunc = function(c,v) _G.PGConfig.EspLoai9=v; _G.PGConfig.Esp9_Line=v; _G.PGConfig.Esp9_HP=v; _G.PGConfig.Esp9_Name=v; pcall(function() _G.SaveModSettings() end) return true end },
-            { Key = "ModMenu_ESP9_L",   UI = AliasMap.Switcher, Text = "ESP V2 LINE",          GetFunc = function() return _G.PGConfig.Esp9_Line    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Line    = v; pcall(function() _G.SaveModSettings() end) return true end },
-            { Key = "ModMenu_ESP9_H",   UI = AliasMap.Switcher, Text = "ESP V2 HEALTH BAR",   GetFunc = function() return _G.PGConfig.Esp9_HP      end, SetFunc = function(c,v) _G.PGConfig.Esp9_HP      = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP9_H",   UI = AliasMap.Switcher, Text = "ESP V2 HEALTH",   GetFunc = function() return _G.PGConfig.Esp9_HP      end, SetFunc = function(c,v) _G.PGConfig.Esp9_HP      = v; pcall(function() _G.SaveModSettings() end) return true end },
             { Key = "ModMenu_ESP9_N",   UI = AliasMap.Switcher, Text = "ESP V2 NAME",          GetFunc = function() return _G.PGConfig.Esp9_Name    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Name    = v; pcall(function() _G.SaveModSettings() end) return true end },
-            { Key = "ModMenu_ESP9_C",   UI = AliasMap.Switcher, Text = "ESP V2 PLAYER COUNTER", GetFunc = function() return _G.PGConfig.Esp9_Count   end, SetFunc = function(c,v) _G.PGConfig.Esp9_Count   = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP9_L",   UI = AliasMap.Switcher, Text = "ESP V2 LINE",          GetFunc = function() return _G.PGConfig.Esp9_Line    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Line    = v; pcall(function() _G.SaveModSettings() end) return true end },
             { Key = "ModMenu_ESPOutline_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ ESP OUTLINE", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.EspOutline end, SetFunc = function(c,v) _G.PGConfig.EspOutline = v; pcall(function() _G.SaveModSettings() end) return true end },
             { Key = "ModMenu_ESPOutline_Thickness", UI = AliasMap.Slider, Text = "   Outline Thickness (1% is perfect)", ExpandHandle = "ModMenu_ESPOutline_Ex", MinValue = 1, MaxValue = 20, min = 1, max = 20, GetFunc = function() return _G.PGConfig.OutlineThickness end, SetFunc = function(c,v) _G.PGConfig.OutlineThickness = v; pcall(function() _G.SaveModSettings() end) return true end }
         }
@@ -2991,7 +2990,7 @@ function _G.InitModMenuTab()
 
         -- ==================== COLOR MOD ====================
         local StackColorMod = {
-            { Key = "ColorMod_Title", UI = AliasMap.Title, Text = "🎨 COLOR SETTINGS" },
+            { Key = "ColorMod_Title", UI = AliasMap.Title, Text = " COLOR SETTINGS" },
             { Key = "ColorMod_Visible", UI = AliasMap.Slider, Text = "Visible Color",
               Min = 1, Max = 7, Step = 1,
               GetFunc = function() return _G.ColorConfig.VisibleColor end,
@@ -3118,11 +3117,11 @@ function _G.InitModMenuTab()
             Text= "@PGHACKS1 MENU",
             UIKey = "Setting_Page_Privacy", 
             Category = {
-                { Key = "Cat_SkinMod", Text= "SKIN CUSTOM", Stack = StackSkinMod },
+                { Key = "Cat_ESP_Visual", Text= "ESP FEATURES", Stack = StackESPVisual },
                 { Key = "Cat_Aimbot_Force", Text= "UR/ROOM-TOUCH AIM", Stack = StackAimbotForce },
-                { Key = "Cat_ESP_Visual", Text= "ESP PLAYER", Stack = StackESPVisual },
                 { Key = "Cat_Combat_Graphic", Text= "WALLHACK/FPS", Stack = StackCombatGraphic },
                 { Key = "Cat_ColorMod", Text= "COLOR CUSTOM", Stack = StackColorMod },
+                { Key = "Cat_SkinMod", Text= "SKIN CUSTOM", Stack = StackSkinMod },
                 { Key = "Cat_Brutal", Text= "BRUTAL FEATURES", Stack = StackBrutal },
             }
         }
