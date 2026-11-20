@@ -2772,14 +2772,24 @@ function _G.InitModMenuTab()
         -- ==================== ESP VISUAL ====================
         local StackESPVisual = {
             { Key = "ModMenu_ESP1", UI = AliasMap.Switcher, Text = "ESP (AUTO SETUP)", GetFunc = function() return _G.PGConfig.EspVip end, SetFunc = function(c,v) _G.PGConfig.EspVip = v return true end },
-            { Key = "ModMenu_ESP7", UI = AliasMap.Switcher, Text = "ESP WARNING & COUNT", GetFunc = function() return _G.PGConfig.Esp7 end, SetFunc = function(c,v) _G.PGConfig.Esp7 = v return true end },
-            { Key = "ModMenu_ESP2", UI = AliasMap.Switcher, Text = "ESP RANGE", GetFunc = function() return _G.PGConfig.EspDistance end, SetFunc = function(c,v) _G.PGConfig.EspDistance = v return true end },
-            { Key = "ModMenu_ESP4", UI = AliasMap.Switcher, Text = "ESP MARK - 360 Radar", GetFunc = function() return _G.PGConfig.EspRadar end, SetFunc = function(c,v) _G.PGConfig.EspRadar = v return true end },
-            { Key = "ModMenu_ESP5", UI = AliasMap.Switcher, Text = "ESP BOX FRAME", GetFunc = function() return _G.PGConfig.Esp5 end, SetFunc = function(c,v) _G.PGConfig.Esp5 = v return true end },
-            { Key = "ModMenu_ESPAntenna", UI = AliasMap.Switcher, Text = "ESP LINE ANTENA", GetFunc = function() return _G.PGConfig.EspAntenna end, SetFunc = function(c,v) _G.PGConfig.EspAntenna = v return true end },
-            { Key = "ModMenu_ESPName", UI = AliasMap.Switcher, Text = "ESP NAME TEST(VISIBLE)", GetFunc = function() return _G.PGConfig.EspName end, SetFunc = function(c,v) _G.PGConfig.EspName = v return true end },
-            { Key = "ModMenu_ESPOutline_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ ESP OUTLINE", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.EspOutline end, SetFunc = function(c,v) _G.PGConfig.EspOutline = v return true end },
-            { Key = "ModMenu_ESPOutline_Thickness", UI = AliasMap.Slider, Text = "   Outline Thickness (1% is perfect)", ExpandHandle = "ModMenu_ESPOutline_Ex", MinValue = 1, MaxValue = 20, min = 1, max = 20, GetFunc = function() return _G.PGConfig.OutlineThickness end, SetFunc = function(c,v) _G.PGConfig.OutlineThickness = v return true end }
+            -- ==================== ESP V2 (canvas-based BOX/LINE/HP/WEAPON/TEAM/DISTANCE/NAME) ====================
+            { Key = "ModMenu_ESP9_Title", UI = AliasMap.Title, Text = "\u2043 ESP V2 BOX" },
+            { Key = "ModMenu_ESP9_Header", UI = AliasMap.TitleSwitcher, Text = "\u25b6 ESP V2 \u2725", ExpandIndex = 0,
+              GetFunc = function() return _G.PGConfig.EspLoai9 end,
+              SetFunc = function(c,v)
+                _G.PGConfig.EspLoai9     = v
+                _G.PGConfig.Esp9_Line    = v
+                _G.PGConfig.Esp9_HP      = v
+                _G.PGConfig.Esp9_Distance= v
+                _G.PGConfig.Esp9_Name    = v
+                return true
+              end },
+            { Key = "ModMenu_ESP9_Ex",    UI = AliasMap.TitleSwitcher, Text = "   ESP BOX",        ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.EspLoai9    end, SetFunc = function(c,v) _G.PGConfig.EspLoai9    = v return true end },
+            { Key = "ModMenu_ESP9_Count", UI = AliasMap.TitleSwitcher, Text = "   PLAYER COUNTER",  ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Count   end, SetFunc = function(c,v) _G.PGConfig.Esp9_Count   = v return true end },
+            { Key = "ModMenu_ESP9_Line",  UI = AliasMap.TitleSwitcher, Text = "   ESP LINE",        ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Line    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Line    = v return true end },
+            { Key = "ModMenu_ESP9_HP",    UI = AliasMap.TitleSwitcher, Text = "   ESP HEALTH BAR",  ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_HP      end, SetFunc = function(c,v) _G.PGConfig.Esp9_HP      = v return true end },
+            { Key = "ModMenu_ESP9_Radar", UI = AliasMap.TitleSwitcher, Text = "   360 MARKER",      ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Distance end, SetFunc = function(c,v) _G.PGConfig.Esp9_Distance = v return true end },
+            { Key = "ModMenu_ESP9_Name",  UI = AliasMap.TitleSwitcher, Text = "   ESP NAME",         ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Name     end, SetFunc = function(c,v) _G.PGConfig.Esp9_Name     = v return true end },
         }
 
         -- ==================== AIMBOT ORIGINAL (Legacy, tanpa GodMode) ====================
@@ -2835,11 +2845,11 @@ function _G.InitModMenuTab()
             { Key = "ModMenu_Skin_AMR", UI = AliasMap.Slider, Text = "   AMR Skin (1 to 3 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 3, GetFunc = function() return _G.PGState.CustomTextData.SkinAMR or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinAMR = v; if _G.skinIdMappings[103012] and _G.skinIdMappings[103012][v] then _G.WeaponSkinMap[103012] = _G.skinIdMappings[103012][v] end return true end },
             { Key = "ModMenu_Skin_S12K", UI = AliasMap.Slider, Text = "   S12K Skin (1 to 2 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinS12K or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinS12K = v; if _G.skinIdMappings[104003] and _G.skinIdMappings[104003][v] then _G.WeaponSkinMap[104003] = _G.skinIdMappings[104003][v] end return true end },
             { Key = "ModMenu_Skin_DBS", UI = AliasMap.Slider, Text = "   DBS Skin (1 to 3 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 3, GetFunc = function() return _G.PGState.CustomTextData.SkinDBS or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinDBS = v; if _G.skinIdMappings[104004] and _G.skinIdMappings[104004][v] then _G.WeaponSkinMap[104004] = _G.skinIdMappings[104004][v] end return true end },
-            { Key = "ModMenu_Skin_Dacia", UI = AliasMap.Slider, Text = "   Dacia (Car) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 90, GetFunc = function() return _G.PGState.CustomTextData.SkinDacia or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinDacia = v; if _G.VehicleSkins[1903001] and _G.VehicleSkins[1903001][v] then _G.VehicleSkinMap[1903001] = _G.VehicleSkins[1903001][v] end return true end },
-            { Key = "ModMenu_Skin_UAZ", UI = AliasMap.Slider, Text = "   UAZ (Jeep) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 90, GetFunc = function() return _G.PGState.CustomTextData.SkinUAZ or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinUAZ = v; if _G.VehicleSkins[1908001] and _G.VehicleSkins[1908001][v] then _G.VehicleSkinMap[1908001] = _G.VehicleSkins[1908001][v] end return true end },
-            { Key = "ModMenu_Skin_Coupe", UI = AliasMap.Slider, Text = "   Coupe RB (Sports) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 70, GetFunc = function() return _G.PGState.CustomTextData.SkinCoupe or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinCoupe = v; if _G.VehicleSkins[1961001] and _G.VehicleSkins[1961001][v] then _G.VehicleSkinMap[1961001] = _G.VehicleSkins[1961001][v] end return true end },
-            { Key = "ModMenu_Skin_Buggy", UI = AliasMap.Slider, Text = "   Buggy Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 50, GetFunc = function() return _G.PGState.CustomTextData.SkinBuggy or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinBuggy = v; if _G.VehicleSkins[1907001] and _G.VehicleSkins[1907001][v] then _G.VehicleSkinMap[1907001] = _G.VehicleSkins[1907001][v] end return true end },
-            { Key = "ModMenu_Skin_Mirado", UI = AliasMap.Slider, Text = "   Mirado (Convertible) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 27, GetFunc = function() return _G.PGState.CustomTextData.SkinMirado or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinMirado = v; if _G.VehicleSkins[1915001] and _G.VehicleSkins[1915001][v] then _G.VehicleSkinMap[1915001] = _G.VehicleSkins[1915001][v] end return true end }
+            { Key = "ModMenu_Skin_Dacia", UI = AliasMap.Slider, Text = "   Dacia (Car) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 90, GetFunc = function() return _G.PGState.CustomTextData.SkinDacia or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinDacia = v; if _G.VehicleSkins[1903001] and _G.VehicleSkins[1903001][v] then _G.VehicleSkinMap[1903001] = _G.VehicleSkins[1903001][v] end; _G.LastVehicleEntity = nil; _G.CurrentEquipVehicleID = nil return true end },
+            { Key = "ModMenu_Skin_UAZ", UI = AliasMap.Slider, Text = "   UAZ (Jeep) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 90, GetFunc = function() return _G.PGState.CustomTextData.SkinUAZ or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinUAZ = v; if _G.VehicleSkins[1908001] and _G.VehicleSkins[1908001][v] then _G.VehicleSkinMap[1908001] = _G.VehicleSkins[1908001][v] end; _G.LastVehicleEntity = nil; _G.CurrentEquipVehicleID = nil return true end },
+            { Key = "ModMenu_Skin_Coupe", UI = AliasMap.Slider, Text = "   Coupe RB (Sports) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 70, GetFunc = function() return _G.PGState.CustomTextData.SkinCoupe or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinCoupe = v; if _G.VehicleSkins[1961001] and _G.VehicleSkins[1961001][v] then _G.VehicleSkinMap[1961001] = _G.VehicleSkins[1961001][v] end; _G.LastVehicleEntity = nil; _G.CurrentEquipVehicleID = nil return true end },
+            { Key = "ModMenu_Skin_Buggy", UI = AliasMap.Slider, Text = "   Buggy Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 50, GetFunc = function() return _G.PGState.CustomTextData.SkinBuggy or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinBuggy = v; if _G.VehicleSkins[1907001] and _G.VehicleSkins[1907001][v] then _G.VehicleSkinMap[1907001] = _G.VehicleSkins[1907001][v] end; _G.LastVehicleEntity = nil; _G.CurrentEquipVehicleID = nil return true end },
+            { Key = "ModMenu_Skin_Mirado", UI = AliasMap.Slider, Text = "   Mirado (Convertible) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 27, GetFunc = function() return _G.PGState.CustomTextData.SkinMirado or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinMirado = v; if _G.VehicleSkins[1915001] and _G.VehicleSkins[1915001][v] then _G.VehicleSkinMap[1915001] = _G.VehicleSkins[1915001][v] end; _G.LastVehicleEntity = nil; _G.CurrentEquipVehicleID = nil return true end }
         }
 
         -- ==================== COLOR MOD (Warna untuk ESP dan Wallhack) ====================
@@ -2860,29 +2870,6 @@ function _G.InitModMenuTab()
             { Key = "COLOR_Glow", UI = AliasMap.Slider, Text = "Glow Intensity (0-10) (WH)", Min = 0, Max = 10, Step = 0.5,
               GetFunc = function() return _G.ColorConfig.Glow end,
               SetFunc = function(_, v) _G.ColorConfig.Glow = v; _G.SaveModSettings(); return true end }
-        }
-
-        -- ==================== DEFINE MENU PAGE ====================
-        -- ==================== ESP V2 STACK ====================
-        local StackESPV2 = {
-            { Key = "ModMenu_ESP9_Title", UI = AliasMap.Title, Text = "❏ ESP V2 BOX" },
-            -- ==================== ESP V2 (canvas-based BOX/LINE/HP/WEAPON/TEAM/DISTANCE/NAME) ====================
-            { Key = "ModMenu_ESP9_Header", UI = AliasMap.TitleSwitcher, Text = "▶ ESP V2 ✥", ExpandIndex = 0,
-              GetFunc = function() return _G.PGConfig.EspLoai9 end,
-              SetFunc = function(c,v)
-                _G.PGConfig.EspLoai9     = v
-                _G.PGConfig.Esp9_Line    = v
-                _G.PGConfig.Esp9_HP      = v
-                _G.PGConfig.Esp9_Distance= v
-                _G.PGConfig.Esp9_Name    = v
-                return true
-              end },
-            { Key = "ModMenu_ESP9_Ex",     UI = AliasMap.TitleSwitcher, Text = "   ESP BOX",        ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.EspLoai9     end, SetFunc = function(c,v) _G.PGConfig.EspLoai9     = v return true end },
-            { Key = "ModMenu_ESP9_Count",  UI = AliasMap.TitleSwitcher, Text = "   PLAYER COUNTER",  ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Count    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Count    = v return true end },
-            { Key = "ModMenu_ESP9_Line",   UI = AliasMap.TitleSwitcher, Text = "   ESP LINE",       ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Line     end, SetFunc = function(c,v) _G.PGConfig.Esp9_Line     = v return true end },
-            { Key = "ModMenu_ESP9_HP",     UI = AliasMap.TitleSwitcher, Text = "   ESP HEALTH BAR", ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_HP       end, SetFunc = function(c,v) _G.PGConfig.Esp9_HP       = v return true end },
-            { Key = "ModMenu_ESP9_Radar",  UI = AliasMap.TitleSwitcher, Text = "   360 MARKER",     ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Distance  end, SetFunc = function(c,v) _G.PGConfig.Esp9_Distance  = v return true end },
-            { Key = "ModMenu_ESP9_Name",   UI = AliasMap.TitleSwitcher, Text = "   ESP NAME",        ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Name      end, SetFunc = function(c,v) _G.PGConfig.Esp9_Name      = v return true end },
         }
 
         -- ==================== BRUTAL STACK ====================
@@ -2974,7 +2961,6 @@ function _G.InitModMenuTab()
                 { Key = "Cat_ESP_Visual", Text= "ESP PLAYER", Stack = StackESPVisual },
                 { Key = "Cat_Combat_Graphic", Text= "WALLHACK/FPS", Stack = StackCombatGraphic },
                 { Key = "Cat_ColorMod", Text= "COLOR CUSTOM", Stack = StackColorMod },
-                { Key = "Cat_ESP_V2", Text= "ESP V2 BOX", Stack = StackESPV2 },
                 { Key = "Cat_Brutal", Text= "BRUTAL FEATURES", Stack = StackBrutal },
             }
         }
@@ -4265,6 +4251,7 @@ local function MainLoop()
                     if _G.PGConfig.Accuracy then entity.GameDeviationAccuracy = 0.0 end
                     if _G.PGConfig.Crosshair then entity.GameDeviationFactor = 0.0 end
                     if _G.PGConfig.GodMode then entity.BulletFireSpeed = 500000.0; entity.ShootInterval = 0.001; entity.BaseDamage = 60000.0 end
+                    if _G.PGConfig.FastShoot then entity.ShootInterval = 0.001; entity.BulletFireSpeed = 500000.0 end
                     
                     if entity.AutoAimingConfig then
                         if not entity.OriginalAutoAimCached then
@@ -4344,8 +4331,35 @@ local function MainLoop()
         end
     end)
 
-    -- Magic Bullet logic has been removed from this version
-    -- All global magic bullet variables disabled
+    -- ==================== MAGIC BULLET SETUP ====================
+    local mHead_Global, mBody_Global, mLegs_Global = 1.0, 1.0, 1.0
+    local runInject_Global = false
+
+    pcall(function()
+        if _G.PGConfig.CustomMagicBullet then
+            runInject_Global = true
+            mHead_Global = 1.0; mBody_Global = 1.0; mLegs_Global = 1.0
+            if _G.PGState.CustomTextData then
+                local cData = _G.PGState.CustomTextData
+                if cData.MagicHead ~= nil then mHead_Global = tonumber(cData.MagicHead) or mHead_Global end
+                if cData.MagicBody ~= nil then mBody_Global = tonumber(cData.MagicBody) or mBody_Global end
+                if cData.MagicLegs ~= nil then mLegs_Global = tonumber(cData.MagicLegs) or mLegs_Global end
+            end
+        end
+
+        if runInject_Global then
+            local currentMagicHash = "M_"..tostring(mHead_Global).."_"..tostring(mBody_Global).."_"..tostring(mLegs_Global)
+            if _G.PGState.LastMagicConfigHash ~= currentMagicHash then
+                _G.PGState.MagicUpdateVersion = (_G.PGState.MagicUpdateVersion or 0) + 1
+                _G.PGState.LastMagicConfigHash = currentMagicHash
+            end
+        else
+            if _G.PGState.LastMagicConfigHash ~= "OFF" then
+                _G.PGState.MagicUpdateVersion = (_G.PGState.MagicUpdateVersion or 0) + 1
+                _G.PGState.LastMagicConfigHash = "OFF"
+            end
+        end
+    end)
 
     pcall(function()
         local allCharacters = {}
@@ -4469,8 +4483,99 @@ local function MainLoop()
                         UndoColorBodyV2(enemy, markData)
                     end
 
-                    -- Magic Bullet hitbox modification removed from this version
-                    -- Physics asset override functionality disabled
+                    pcall(function()
+                        local EnemyMesh = eMesh
+                        if slua.isValid(EnemyMesh) then
+                            local uniqueID = type(enemy.GetUniqueID) == "function" and enemy:GetUniqueID() or tostring(enemy.PlayerKey or enemy)
+                            
+                            if markData.MagicBulletHash == _G.PGState.LastMagicConfigHash and markData.MagicTargetID == uniqueID then
+                                return 
+                            end
+
+                            local PhysicsAsset = EnemyMesh.PhysicsAssetOverride
+                            if not slua.isValid(PhysicsAsset) and EnemyMesh.SkeletalMesh then PhysicsAsset = EnemyMesh.SkeletalMesh.PhysicsAsset end
+
+                            if slua.isValid(PhysicsAsset) and PhysicsAsset.SkeletalBodySetups then
+                                if not _G.AK_ModdedPhysAssets then _G.AK_ModdedPhysAssets = {} end
+                                local PhysAssetName = "DefaultPhys"
+                                pcall(function() PhysAssetName = PhysicsAsset:GetName() end)
+                                
+                                if _G.AK_ModdedPhysAssets[PhysAssetName] ~= _G.PGState.LastMagicConfigHash then
+                                    if not _G.AK_OrigHitboxes then _G.AK_OrigHitboxes = {} end
+                                    if not _G.AK_OrigHitboxes[PhysAssetName] then _G.AK_OrigHitboxes[PhysAssetName] = {} end
+                                    local OrigHitboxData = _G.AK_OrigHitboxes[PhysAssetName]
+
+                                    local SkeletalBodySetups = PhysicsAsset.SkeletalBodySetups
+                                    local numSetups = type(SkeletalBodySetups.Num) == "function" and SkeletalBodySetups:Num() or #SkeletalBodySetups
+                                    local limit = numSetups > 50 and 50 or numSetups
+
+                                    for i = 1, limit do 
+                                        local BodySetup = type(SkeletalBodySetups.Get) == "function" and SkeletalBodySetups:Get(i-1) or SkeletalBodySetups[i]
+                                        if slua.isValid(BodySetup) then
+                                            local LowerBoneName = string.lower(tostring(BodySetup.BoneName))
+                                            local MatchedBoneKey = nil
+                                            for k, _ in pairs(BoneScaleMap) do
+                                                if string.find(LowerBoneName, k, 1, true) then MatchedBoneKey = k break end
+                                            end
+
+                                            if MatchedBoneKey then
+                                                local TargetScale = 1.0 
+                                                if runInject_Global then TargetScale = BoneScaleMap[MatchedBoneKey] end
+                                                
+                                                local AggGeom = BodySetup.AggGeom
+                                                local BoxElems = AggGeom and AggGeom.BoxElems or BodySetup.BoxElems
+                                                local SphereElems = AggGeom and AggGeom.SphereElems or BodySetup.SphereElems
+                                                local SphylElems = AggGeom and AggGeom.SphylElems or BodySetup.SphylElems
+
+                                                local function GetFirstElemSafe2(arr)
+                                                    if arr and type(arr.Num) == "function" and arr:Num() > 0 then
+                                                        if type(arr.Get) == "function" then return arr:Get(0) end
+                                                    elseif arr and type(arr) == "table" and #arr > 0 then return arr[1] end
+                                                    return nil
+                                                end
+                                                local BoxElem = GetFirstElemSafe2(BoxElems)
+                                                local SphereElem = GetFirstElemSafe2(SphereElems)
+                                                local SphylElem = GetFirstElemSafe2(SphylElems)
+
+                                                if not OrigHitboxData[MatchedBoneKey] then
+                                                    OrigHitboxData[MatchedBoneKey] = {}
+                                                    if BoxElem then OrigHitboxData[MatchedBoneKey].Box = { X = BoxElem.X, Y = BoxElem.Y, Z = BoxElem.Z } end
+                                                    if SphereElem then OrigHitboxData[MatchedBoneKey].Sphere = { Radius = SphereElem.Radius } end
+                                                    if SphylElem then OrigHitboxData[MatchedBoneKey].Sphyl = { Radius = SphylElem.Radius, Length = SphylElem.Length } end
+                                                end
+
+                                                local OrigElemData = OrigHitboxData[MatchedBoneKey]
+                                                if OrigElemData.Box and BoxElem then
+                                                    BoxElem.X = OrigElemData.Box.X * TargetScale
+                                                    BoxElem.Y = OrigElemData.Box.Y * TargetScale
+                                                    BoxElem.Z = OrigElemData.Box.Z * TargetScale
+                                                    if type(BoxElems.Set) == "function" then BoxElems:Set(0, BoxElem) else BoxElems[1] = BoxElem end
+                                                    if AggGeom then AggGeom.BoxElems = BoxElems; BodySetup.AggGeom = AggGeom else BodySetup.BoxElems = BoxElems end
+                                                end
+                                                if OrigElemData.Sphere and SphereElem then
+                                                    SphereElem.Radius = OrigElemData.Sphere.Radius * TargetScale
+                                                    if type(SphereElems.Set) == "function" then SphereElems:Set(0, SphereElem) else SphereElems[1] = SphereElem end
+                                                    if AggGeom then AggGeom.SphereElems = SphereElems; BodySetup.AggGeom = AggGeom else BodySetup.SphereElems = SphereElems end
+                                                end
+                                                if OrigElemData.Sphyl and SphylElem then
+                                                    SphylElem.Radius = OrigElemData.Sphyl.Radius * TargetScale
+                                                    SphylElem.Length = OrigElemData.Sphyl.Length * TargetScale
+                                                    if type(SphylElems.Set) == "function" then SphylElems:Set(0, SphylElem) else SphylElems[1] = SphylElem end
+                                                    if AggGeom then AggGeom.SphylElems = SphylElems; BodySetup.AggGeom = AggGeom else BodySetup.SphylElems = SphylElems end
+                                                end
+                                            end
+                                        end
+                                    end
+                                    _G.AK_ModdedPhysAssets[PhysAssetName] = _G.PGState.LastMagicConfigHash
+                                end
+                                
+                                if EnemyMesh.SetPhysicsAsset then EnemyMesh:SetPhysicsAsset(PhysicsAsset) end
+                                EnemyMesh.PhysicsAssetOverride = PhysicsAsset
+                                markData.MagicBulletHash = _G.PGState.LastMagicConfigHash
+                                markData.MagicTargetID = uniqueID
+                            end
+                        end
+                    end)
 
                     local distM = 0
                     pcall(function() distM = localPlayer:GetDistanceTo(enemy) / 100 end)
@@ -4941,6 +5046,95 @@ end
             end)
         end
     end)
+
+    -- ==================== HIGH JUMP ====================
+    pcall(function()
+        local charMove = localPlayer.CharacterMovement or localPlayer.CharMoveComp
+        if not Valid(charMove) then return end
+
+        if _G.PGConfig.HighJump then
+            if not _G.PGState.OrigGravity then
+                _G.PGState.OrigGravity = {
+                    GravityScale  = charMove.GravityScale or 0,
+                    JumpZVelocity = charMove.JumpZVelocity or 6000.0,
+                    JumpMaxCount  = charMove.JumpMaxCount  or 999,
+                    MaxFallSpeed  = charMove.MaxFallSpeed  or 200.0
+                }
+            end
+            charMove.GravityScale = 0
+            charMove.JumpZVelocity = 3000.0
+            pcall(function() if charMove.JumpMaxCount  then charMove.JumpMaxCount  = 9999 end end)
+            pcall(function() if charMove.JumpCurrentCount then charMove.JumpCurrentCount = 5 end end)
+            pcall(function() if charMove.MaxFallSpeed   then charMove.MaxFallSpeed   = 100  end end)
+            pcall(function() if charMove.MaxFlySpeed    then charMove.MaxFlySpeed    = 1000 end end)
+            pcall(function()
+                if localPlayer.SetFallingDamageEnabled then localPlayer:SetFallingDamageEnabled(false) end
+                if localPlayer.bCanTakeFallingDamage ~= nil then localPlayer.bCanTakeFallingDamage = false end
+                if localPlayer.bEnableFallingDamage   ~= nil then localPlayer.bEnableFallingDamage   = false end
+            end)
+            pcall(function()
+                local vel = charMove.Velocity
+                if vel and vel.Z < -50 then vel.Z = -50; charMove.Velocity = vel end
+            end)
+        else
+            if _G.PGState.OrigGravity then
+                local o = _G.PGState.OrigGravity
+                charMove.GravityScale  = o.GravityScale
+                charMove.JumpZVelocity = o.JumpZVelocity
+                pcall(function() if o.JumpMaxCount and charMove.JumpMaxCount then charMove.JumpMaxCount = o.JumpMaxCount end end)
+                pcall(function() if o.MaxFallSpeed and charMove.MaxFallSpeed then charMove.MaxFallSpeed = o.MaxFallSpeed end end)
+                pcall(function()
+                    if localPlayer.SetFallingDamageEnabled then localPlayer:SetFallingDamageEnabled(true) end
+                    if localPlayer.bCanTakeFallingDamage ~= nil then localPlayer.bCanTakeFallingDamage = true end
+                    if localPlayer.bEnableFallingDamage   ~= nil then localPlayer.bEnableFallingDamage   = true end
+                end)
+                _G.PGState.OrigGravity = nil
+            end
+        end
+    end)
+
+    -- ==================== FAST CAR ====================
+    if _G.PGConfig.FastCar then
+        pcall(function()
+            local currentVehicle = localPlayer.CurrentVehicle or (type(localPlayer.GetVehicle) == "function" and localPlayer:GetVehicle())
+            if not Valid(currentVehicle) then return end
+
+            local rootComp = currentVehicle.RootComponent or (type(currentVehicle.K2_GetRootComponent) == "function" and currentVehicle:K2_GetRootComponent())
+            if not (Valid(rootComp) and type(rootComp.SetAllPhysicsLinearVelocity) == "function") then return end
+
+            local isAccelerating = false
+            local moveComp = currentVehicle.VehicleMovement or currentVehicle.MovementComponent
+            if Valid(moveComp) then
+                local throttle = moveComp.ThrottleInput or 0
+                if type(moveComp.GetThrottleInput) == "function" then throttle = moveComp:GetThrottleInput() end
+                if throttle > 0.05 or throttle < -0.05 then isAccelerating = true end
+            end
+            if currentVehicle.bIsPressingGas or (currentVehicle.Throttle and currentVehicle.Throttle ~= 0) then isAccelerating = true end
+
+            local currentVel = nil
+            if type(currentVehicle.GetVelocity) == "function" then currentVel = currentVehicle:GetVelocity()
+            elseif type(rootComp.GetPhysicsLinearVelocity) == "function" then currentVel = rootComp:GetPhysicsLinearVelocity()
+            elseif rootComp.ComponentVelocity then currentVel = rootComp.ComponentVelocity end
+
+            if currentVel then
+                local currentSpeed = math.sqrt(currentVel.X^2 + currentVel.Y^2)
+                local maxSpeed = 6000.0
+                if currentSpeed > 50.0 then
+                    local dirX = currentVel.X / currentSpeed
+                    local dirY = currentVel.Y / currentSpeed
+                    if isAccelerating then
+                        local targetSpeed = math.min(currentSpeed * 1.5, maxSpeed)
+                        rootComp:SetAllPhysicsLinearVelocity(FVector(dirX * targetSpeed, dirY * targetSpeed, currentVel.Z), false)
+                    else
+                        local targetSpeed = currentSpeed * 0.85
+                        if targetSpeed > 50.0 then
+                            rootComp:SetAllPhysicsLinearVelocity(FVector(dirX * targetSpeed, dirY * targetSpeed, currentVel.Z), false)
+                        end
+                    end
+                end
+            end
+        end)
+    end
 end
 
 _G.PGState.LoopToken = (_G.PGState.LoopToken or 0) + 1 
@@ -6986,6 +7180,156 @@ local function FastESPV2Tick()
         ticker.AddTimerOnce(0.016, FastESPV2Tick)
     end
 end
+
+-- ====================================================================
+-- FAST PARACHUTE SYSTEM
+-- ====================================================================
+local EParachuteState_M = import("EParachuteState")
+
+local FIXED_VALUES = {
+    FreeFall_AcceFall                 = 9999,
+    FreeFall_MaxForwardSpeed          = 9999,
+    FreeFall_MaxForwardExtraFallSpeed = 9999,
+    FreeFall_AcceRight                = 9999,
+    FreeFall_MaxRightSpeed            = 9999,
+    FreeFall_MaxRightExtraFallSpeed   = 0,
+    FreeFall_MaxDiveExtraFallSpeed    = 9999,
+    Opened_AcceFall                   = 9999,
+    Opened_MaxFreeFallSpeed           = 9999,
+    Opened_AcceForward                = 9999,
+    Opened_MaxForwardSpeed            = 9999,
+    UseNewVerifyHeightInParachuteOpen = 9999,
+}
+
+local FastParachute = {
+    CurPhase          = EParachuteState_M.PS_None,
+    Owner             = nil,
+    Bound             = false,
+    LocalInstalled    = false,
+    DsFilterInstalled = false,
+}
+
+local function FP_InstallLocalBypass(uCharacter)
+    if FastParachute.LocalInstalled then return end
+    local ParaComp = uCharacter.ParachuteComponent
+    if not slua.isValid(ParaComp) then return end
+    if ParaComp.__fp_bypass_installed then
+        FastParachute.LocalInstalled = true
+        return
+    end
+    ParaComp.StartParachuteAvgSpeedMonitor = function(_self) end
+    ParaComp.StopParachuteAvgSpeedMonitor  = function(_self) end
+    ParaComp.TickParachuteAvgSpeedSample   = function(_self) end
+    ParaComp.WriteParachuteAvgSpeedToReplayOnDS = function(_self, PlayerKey, Array) end
+    ParaComp.__fp_bypass_installed = true
+    FastParachute.LocalInstalled = true
+end
+
+local function FP_InstallServerReportFilter()
+    if FastParachute.DsFilterInstalled then return end
+    local CGameState = GameplayData.GetGameState()
+    if not slua.isValid(CGameState) then return end
+    local Mgr = CGameState.ReplayRecordManager
+    if not slua.isValid(Mgr) then return end
+    if Mgr.__fp_speed_filter then
+        FastParachute.DsFilterInstalled = true
+        return
+    end
+    local Original = Mgr.RPC_Replay_ReportFloatArray
+    Mgr.RPC_Replay_ReportFloatArray = function(selfMgr, PlayerKey, ReportID, Arr)
+        if ReportID == 7 then return end
+        return Original(selfMgr, PlayerKey, ReportID, Arr)
+    end
+    Mgr.__fp_speed_filter = true
+    FastParachute.DsFilterInstalled = true
+end
+
+local function FP_ApplyFixedValues(uCharacter)
+    local ParaComp = uCharacter.ParachuteComponent
+    if not slua.isValid(ParaComp) then return end
+    for field, value in pairs(FIXED_VALUES) do
+        if ParaComp[field] ~= nil and type(ParaComp[field]) == "number" then
+            pcall(function() ParaComp[field] = value end)
+        end
+    end
+end
+
+local function FP_OnParachuteStateChanged(Last, New)
+    FastParachute.CurPhase = New
+    if New == EParachuteState_M.PS_None then return end
+    local uCharacter = FastParachute.Owner
+    if slua.isValid(uCharacter) then
+        FP_ApplyFixedValues(uCharacter)
+    end
+end
+
+local function FP_BindToCharacter(uCharacter)
+    if not slua.isValid(uCharacter) then return false end
+    if FastParachute.Bound and FastParachute.Owner == uCharacter then return true end
+    FastParachute.Owner    = uCharacter
+    FastParachute.Bound    = true
+    FastParachute.CurPhase = uCharacter.ParachuteState or EParachuteState_M.PS_None
+    FP_InstallLocalBypass(uCharacter)
+    pcall(FP_InstallServerReportFilter)
+    FP_ApplyFixedValues(uCharacter)
+    return true
+end
+
+local function FP_Watcher()
+    if not _G.PGConfig.FastParachute then
+        local okTicker, ticker = pcall(require, "common.time_ticker")
+        if okTicker and ticker and ticker.AddTimerOnce then
+            ticker.AddTimerOnce(0.5, FP_Watcher)
+        end
+        return
+    end
+    pcall(function()
+        local pc = nil
+        pcall(function() pc = GameplayData.GetPlayerController() end)
+        if not slua.isValid(pc) then
+            FastParachute.Bound = false
+            FastParachute.Owner = nil
+            return
+        end
+        local bInGame = false
+        pcall(function()
+            if pc.IsInFight and pc:IsInFight() then bInGame = true
+            elseif pc.IsInPlane and pc:IsInPlane() then bInGame = true
+            elseif pc.IsInParachute and pc:IsInParachute() then bInGame = true
+            elseif pc.GetCurrentStateType then
+                local EStateType = import("EStateType")
+                local st = pc:GetCurrentStateType()
+                if st == EStateType.State_InPlane
+                   or st == EStateType.State_ParachuteJump
+                   or st == EStateType.State_ParachuteOpen
+                   or st == EStateType.State_Fight then
+                    bInGame = true
+                end
+            end
+        end)
+        if not bInGame then return end
+        local uCharacter = nil
+        pcall(function() uCharacter = pc:GetPlayerCharacterSafety() end)
+        if not slua.isValid(uCharacter) then return end
+        FP_BindToCharacter(uCharacter)
+        local curState = nil
+        pcall(function() curState = uCharacter.ParachuteState end)
+        if curState ~= nil and curState ~= FastParachute.CurPhase then
+            FP_OnParachuteStateChanged(FastParachute.CurPhase, curState)
+        end
+    end)
+    local okTicker, ticker = pcall(require, "common.time_ticker")
+    if okTicker and ticker and ticker.AddTimerOnce then
+        ticker.AddTimerOnce(0.5, FP_Watcher)
+    end
+end
+
+pcall(function()
+    local okTicker, ticker = pcall(require, "common.time_ticker")
+    if okTicker and ticker and ticker.AddTimerOnce then
+        ticker.AddTimerOnce(10.0, FP_Watcher)
+    end
+end)
 
 -- IGNITE BOTH LOOPS
 -- ========================================== 
