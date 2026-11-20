@@ -2010,6 +2010,8 @@ end
 
 if not _G.ModConfigLoaded then
     _G.LoadModSettings()
+    -- Skin maps reload karo saved values se
+    pcall(function() if _G.ForceRefreshSkinMaps then _G.ForceRefreshSkinMaps() end end)
     AutoSaveLoop()
     _G.ModConfigLoaded = true
 end
@@ -2784,6 +2786,7 @@ function _G.InitModMenuTab()
             { Key = "ModMenu_ESP9_H",   UI = AliasMap.Switcher, Text = "ESP V2 HEALTH BAR",   GetFunc = function() return _G.PGConfig.Esp9_HP      end, SetFunc = function(c,v) _G.PGConfig.Esp9_HP      = v return true end },
             { Key = "ModMenu_ESP9_R",   UI = AliasMap.Switcher, Text = "ESP V2 360 MARKER",   GetFunc = function() return _G.PGConfig.Esp9_Distance end, SetFunc = function(c,v) _G.PGConfig.Esp9_Distance = v return true end },
             { Key = "ModMenu_ESP9_N",   UI = AliasMap.Switcher, Text = "ESP V2 NAME",          GetFunc = function() return _G.PGConfig.Esp9_Name    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Name    = v return true end },
+            { Key = "ModMenu_ESP9_C",   UI = AliasMap.Switcher, Text = "ESP V2 PLAYER COUNTER", GetFunc = function() return _G.PGConfig.Esp9_Count   end, SetFunc = function(c,v) _G.PGConfig.Esp9_Count   = v return true end },
             { Key = "ModMenu_ESPName", UI = AliasMap.Switcher, Text = "ESP NAME TEST(VISIBLE)", GetFunc = function() return _G.PGConfig.EspName end, SetFunc = function(c,v) _G.PGConfig.EspName = v return true end },
             { Key = "ModMenu_ESPOutline_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ ESP OUTLINE", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.EspOutline end, SetFunc = function(c,v) _G.PGConfig.EspOutline = v return true end },
             { Key = "ModMenu_ESPOutline_Thickness", UI = AliasMap.Slider, Text = "   Outline Thickness (1% is perfect)", ExpandHandle = "ModMenu_ESPOutline_Ex", MinValue = 1, MaxValue = 20, min = 1, max = 20, GetFunc = function() return _G.PGConfig.OutlineThickness end, SetFunc = function(c,v) _G.PGConfig.OutlineThickness = v return true end }
@@ -2820,9 +2823,9 @@ function _G.InitModMenuTab()
         -- ==================== SKIN MOD (BARU) ====================
         local StackSkinMod = {
             { Key = "ModMenu_Skin_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ SKIN MOD MENU", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.ModSkin end, SetFunc = function(c,v) _G.PGConfig.ModSkin = v return true end },
-            { Key = "ModMenu_Skin_Suit", UI = AliasMap.Slider, Text = "   Outfit (1 to 87 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 80, GetFunc = function() return _G.PGState.CustomTextData.SkinSuit or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinSuit = v; if _G.OutfitSkins and _G.OutfitSkins.Suit[v] then _G.OutfitMap.Suit = _G.OutfitSkins.Suit[v] end return true end },
-            { Key = "ModMenu_Skin_Bag", UI = AliasMap.Slider, Text = "   Bag (Backpack)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 16, GetFunc = function() return _G.PGState.CustomTextData.SkinBag or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinBag = v; if _G.OutfitSkins and _G.OutfitSkins.Bag[v] then _G.OutfitMap.Bag = _G.OutfitSkins.Bag[v] end return true end },
-            { Key = "ModMenu_Skin_Helmet", UI = AliasMap.Slider, Text = "   Helmet", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 12, GetFunc = function() return _G.PGState.CustomTextData.SkinHelmet or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinHelmet = v; if _G.OutfitSkins and _G.OutfitSkins.Helmet[v] then _G.OutfitMap.Helmet = _G.OutfitSkins.Helmet[v] end return true end },
+            { Key = "ModMenu_Skin_Suit", UI = AliasMap.Slider, Text = "   Outfit (1 to 87 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 80, GetFunc = function() return _G.PGState.CustomTextData.SkinSuit or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinSuit = v; if _G.OutfitSkins and _G.OutfitSkins.Suit[v] then _G.OutfitMap.Suit = _G.OutfitSkins.Suit[v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_Bag", UI = AliasMap.Slider, Text = "   Bag (Backpack)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 16, GetFunc = function() return _G.PGState.CustomTextData.SkinBag or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinBag = v; if _G.OutfitSkins and _G.OutfitSkins.Bag[v] then _G.OutfitMap.Bag = _G.OutfitSkins.Bag[v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_Helmet", UI = AliasMap.Slider, Text = "   Helmet", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 12, GetFunc = function() return _G.PGState.CustomTextData.SkinHelmet or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinHelmet = v; if _G.OutfitSkins and _G.OutfitSkins.Helmet[v] then _G.OutfitMap.Helmet = _G.OutfitSkins.Helmet[v] end; pcall(function() _G.SaveModSettings() end) return true end },
             { Key = "ModMenu_Skin_M416", UI = AliasMap.Slider, Text = "   M416 Skin (1 to 10 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 9, GetFunc = function() return _G.PGState.CustomTextData.SkinM416 or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinM416 = v; if _G.skinIdMappings[101004] and _G.skinIdMappings[101004][v] then _G.WeaponSkinMap[101004] = _G.skinIdMappings[101004][v] end return true end },
             { Key = "ModMenu_Skin_AKM", UI = AliasMap.Slider, Text = "   AKM Skin (1 to 8 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 8, GetFunc = function() return _G.PGState.CustomTextData.SkinAKM or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinAKM = v; if _G.skinIdMappings[101001] and _G.skinIdMappings[101001][v] then _G.WeaponSkinMap[101001] = _G.skinIdMappings[101001][v] end return true end },
             { Key = "ModMenu_Skin_SCAR", UI = AliasMap.Slider, Text = "   SCAR-L Skin (1 to 8 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 8, GetFunc = function() return _G.PGState.CustomTextData.SkinSCAR or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinSCAR = v; if _G.skinIdMappings[101003] and _G.skinIdMappings[101003][v] then _G.WeaponSkinMap[101003] = _G.skinIdMappings[101003][v] end return true end },
@@ -2899,7 +2902,7 @@ function _G.InitModMenuTab()
             -- MAGIC BULLET ADJUSTABLE
             { Key = "ModMenu_Magic_Ex2", UI = AliasMap.TitleSwitcher, Text = "▶ MAGIC BULLET ADJUSTABLE", ExpandIndex = 0,
               GetFunc = function() return _G.PGConfig.CustomMagicBullet end,
-              SetFunc = function(c,v) _G.PGConfig.CustomMagicBullet = v return true end },
+              SetFunc = function(c,v) _G.PGConfig.CustomMagicBullet = v; pcall(function() _G.SaveModSettings() end) return true end },
             { Key = "ModMenu_Brutal_MagicHead", UI = AliasMap.Slider, Text = "   HEAD Damage", ExpandHandle = "ModMenu_Magic_Ex2",
               MinValue = 0, MaxValue = 100, min = 0, max = 100,
               GetFunc = function() return math.floor(((_G.PGState.CustomTextData.MagicHead or 1.0) / 5.0) * 100 + 0.5) end,
@@ -2916,27 +2919,27 @@ function _G.InitModMenuTab()
             -- FAST SHOOT
             { Key = "ModMenu_FastShoot", UI = AliasMap.Switcher, Text = "FAST SHOOT",
               GetFunc = function() return _G.PGConfig.FastShoot end,
-              SetFunc = function(c,v) _G.PGConfig.FastShoot = v return true end },
+              SetFunc = function(c,v) _G.PGConfig.FastShoot = v; pcall(function() _G.SaveModSettings() end) return true end },
 
             -- SMALL CROSS NO SPREAD
             { Key = "ModMenu_SmallCross", UI = AliasMap.Switcher, Text = "SMALL CROSS NO SPREAD",
               GetFunc = function() return _G.PGConfig.Crosshair end,
-              SetFunc = function(c,v) _G.PGConfig.Crosshair = v return true end },
+              SetFunc = function(c,v) _G.PGConfig.Crosshair = v; pcall(function() _G.SaveModSettings() end) return true end },
 
             -- CAR SPEED 6000 (ON/OFF only)
             { Key = "ModMenu_FastCar", UI = AliasMap.Switcher, Text = "CAR SPEED 6000",
               GetFunc = function() return _G.PGConfig.FastCar == true end,
-              SetFunc = function(c,v) _G.PGConfig.FastCar = (v == true) return true end },
+              SetFunc = function(c,v) _G.PGConfig.FastCar = (v == true); pcall(function() _G.SaveModSettings() end) return true end },
 
             -- HIGH JUMP (same toggle as existing logic)
             { Key = "ModMenu_HighJump", UI = AliasMap.Switcher, Text = "HIGH JUMP",
               GetFunc = function() return _G.PGConfig.HighJump end,
-              SetFunc = function(c,v) _G.PGConfig.HighJump = v return true end },
+              SetFunc = function(c,v) _G.PGConfig.HighJump = v; pcall(function() _G.SaveModSettings() end) return true end },
 
             -- SPEED HACK with bypass
             { Key = "ModMenu_SpeedHack_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ SPEED HACK", ExpandIndex = 0,
               GetFunc = function() return _G.PGConfig.SpeedHack end,
-              SetFunc = function(c,v) _G.PGConfig.SpeedHack = v return true end },
+              SetFunc = function(c,v) _G.PGConfig.SpeedHack = v; pcall(function() _G.SaveModSettings() end) return true end },
             { Key = "ModMenu_SpeedPercent", UI = AliasMap.Slider, Text = "   Speed % (100-500)", ExpandHandle = "ModMenu_SpeedHack_Ex",
               MinValue = 0, MaxValue = 100,
               GetFunc = function() return ((_G.PGConfig.SpeedPercent or 150) - 100) / 4 end,
@@ -2947,6 +2950,7 @@ function _G.InitModMenuTab()
               GetFunc = function() return _G.PGConfig.FastParachute == true end,
               SetFunc = function(c, v)
                 _G.PGConfig.FastParachute = (v == true)
+                pcall(function() _G.SaveModSettings() end)
                 if v then
                   -- Enable: apply values immediately if already in parachute
                   if FastParachute and FastParachute.Owner and slua.isValid(FastParachute.Owner) then
@@ -4282,8 +4286,11 @@ local function MainLoop()
                         -- Use damage multiplier from sliders
                         local orig = entity.OriginalStatsCached
                         local origDmg = (orig and orig.BaseDamage) or entity.BaseDamage or 40
-                        local mult = _G.PGState.CustomTextData.MagicBody or 1.0
-                        if mult > 0 then entity.BaseDamage = origDmg * mult end
+                        local cData = _G.PGState and _G.PGState.CustomTextData
+                        local mult = (cData and cData.MagicBody) or 1.0
+                        if mult > 0 then
+                            pcall(function() entity.BaseDamage = origDmg * mult end)
+                        end
                         pcall(function() if entity.BulletHitCountMax ~= nil then entity.BulletHitCountMax = 999 end end)
                         pcall(function() if entity.PenetrateWallCount ~= nil then entity.PenetrateWallCount = 999 end end)
                         pcall(function() if entity.PenetrateWallDamageRate ~= nil then entity.PenetrateWallDamageRate = 1.0 end end)
@@ -4967,70 +4974,74 @@ end
     end)
 
     -- ==================== BRUTAL: SPEED HACK ====================
-    pcall(function()
-        if not Valid(localPlayer) then return end
-        local charMove = localPlayer.CharacterMovement or localPlayer.CharMoveComp or localPlayer.STCharacterMovement
-        if not Valid(charMove) then return end
-        if _G.PGConfig.SpeedHack then
-            local spd = (_G.PGConfig.SpeedPercent or 150) * 7.5  -- 150% = 1125 (normal ~600)
-            charMove.MaxWalkSpeed = spd
-            charMove.MaxWalkSpeedCrouched = spd * 0.5
-            pcall(function() if charMove.MaxSwimSpeed ~= nil then charMove.MaxSwimSpeed = spd end end)
-        elseif charMove.MaxWalkSpeed ~= nil and charMove.MaxWalkSpeed > 1500 then
-            -- restore if was hacked
-            charMove.MaxWalkSpeed = 600
-            charMove.MaxWalkSpeedCrouched = 300
-        end
-    end)
+    if Valid(localPlayer) then
+        pcall(function()
+            local charMove = localPlayer.CharacterMovement or localPlayer.CharMoveComp or localPlayer.STCharacterMovement
+            if not charMove then return end
+            if _G.PGConfig.SpeedHack then
+                local spd = (_G.PGConfig.SpeedPercent or 150) * 7.5
+                pcall(function() charMove.MaxWalkSpeed = spd end)
+                pcall(function() charMove.MaxWalkSpeedCrouched = spd * 0.5 end)
+                pcall(function() charMove.MaxSwimSpeed = spd end)
+                pcall(function() charMove.MaxFlySpeed = spd end)
+            else
+                pcall(function()
+                    if charMove.MaxWalkSpeed and charMove.MaxWalkSpeed > 1500 then
+                        charMove.MaxWalkSpeed = 600
+                        charMove.MaxWalkSpeedCrouched = 300
+                    end
+                end)
+            end
+        end)
+    end
 
     -- ==================== BRUTAL: HIGH JUMP ====================
-    pcall(function()
-        if not _G.PGConfig.HighJump then return end
-        if not Valid(localPlayer) then return end
-        local charMove = localPlayer.CharacterMovement or localPlayer.CharMoveComp or localPlayer.STCharacterMovement
-        if not Valid(charMove) then return end
-        charMove.GravityScale = 0
-        charMove.JumpZVelocity = 3000.0
-        pcall(function() if charMove.JumpMaxCount ~= nil then charMove.JumpMaxCount = 9999 end end)
-    end)
+    if _G.PGConfig.HighJump and Valid(localPlayer) then
+        pcall(function()
+            local charMove = localPlayer.CharacterMovement or localPlayer.CharMoveComp or localPlayer.STCharacterMovement
+            if not charMove then return end
+            pcall(function() charMove.GravityScale = 0.1 end)
+            pcall(function() charMove.JumpZVelocity = 3000.0 end)
+            pcall(function() charMove.AirControl = 1.0 end)
+            pcall(function() if charMove.JumpMaxCount ~= nil then charMove.JumpMaxCount = 9999 end end)
+        end)
+    end
 
     -- ==================== BRUTAL: FAST CAR ====================
-    if _G.PGConfig.FastCar then
+    if _G.PGConfig.FastCar and Valid(localPlayer) then
         pcall(function()
-            if not Valid(localPlayer) then return end
-            local currentVehicle = localPlayer:GetCurrentVehicle()
-            if not Valid(currentVehicle) then
+            local currentVehicle = nil
+            pcall(function() currentVehicle = localPlayer:GetCurrentVehicle() end)
+            if not currentVehicle then
                 currentVehicle = localPlayer.CurrentVehicle or localPlayer.Vehicle
             end
-            if not Valid(currentVehicle) then return end
-            -- Try multiple movement component names
+            if not currentVehicle then return end
+            -- Try movement component
             local moveComp = currentVehicle.VehicleMovement
                           or currentVehicle.WheeledVehicleMovement
                           or currentVehicle.MovementComponent
                           or currentVehicle.CharacterMovement
-            if Valid(moveComp) then
-                pcall(function() if moveComp.MaxSpeed ~= nil then moveComp.MaxSpeed = 6000.0 end end)
-                pcall(function() if moveComp.EngineMaxRotationSpeed ~= nil then moveComp.EngineMaxRotationSpeed = 6000.0 end end)
-                pcall(function() if moveComp.EngineSetup and moveComp.EngineSetup.MaxRPM ~= nil then moveComp.EngineSetup.MaxRPM = 20000.0 end end)
-                pcall(function() if moveComp.WheelSetups ~= nil then end end)
+            if moveComp then
+                pcall(function() moveComp.MaxSpeed = 6000.0 end)
+                pcall(function() moveComp.EngineMaxRotationSpeed = 6000.0 end)
+                pcall(function() if moveComp.EngineSetup then moveComp.EngineSetup.MaxRPM = 20000.0 end end)
             end
-            -- Also try direct on vehicle
-            pcall(function() if currentVehicle.MaxSpeed ~= nil then currentVehicle.MaxSpeed = 6000.0 end end)
+            pcall(function() currentVehicle.MaxSpeed = 6000.0 end)
         end)
     end
 
     -- ==================== BRUTAL: FAST PARACHUTE ====================
-    pcall(function()
-        if not _G.PGConfig.FastParachute then return end
-        if not Valid(localPlayer) then return end
-        local paraComp = localPlayer.ParachuteComponent
-        if not Valid(paraComp) then return end
-        if paraComp.FreeFall_AcceFall ~= nil then paraComp.FreeFall_AcceFall = 9999 end
-        if paraComp.FreeFall_MaxForwardSpeed ~= nil then paraComp.FreeFall_MaxForwardSpeed = 9999 end
-        if paraComp.Opened_MaxFreeFallSpeed ~= nil then paraComp.Opened_MaxFreeFallSpeed = 9999 end
-        if paraComp.FreeFall_MaxFallSpeed ~= nil then paraComp.FreeFall_MaxFallSpeed = 9999 end
-        if paraComp.Opened_MaxForwardSpeed ~= nil then paraComp.Opened_MaxForwardSpeed = 9999 end
-    end)
+    if _G.PGConfig.FastParachute and Valid(localPlayer) then
+        pcall(function()
+            local paraComp = localPlayer.ParachuteComponent
+            if not paraComp then return end
+            pcall(function() paraComp.FreeFall_AcceFall = 9999 end)
+            pcall(function() paraComp.FreeFall_MaxForwardSpeed = 9999 end)
+            pcall(function() paraComp.Opened_MaxFreeFallSpeed = 9999 end)
+            pcall(function() paraComp.FreeFall_MaxFallSpeed = 9999 end)
+            pcall(function() paraComp.Opened_MaxForwardSpeed = 9999 end)
+        end)
+    end
 end
 
 _G.PGState.LoopToken = (_G.PGState.LoopToken or 0) + 1
