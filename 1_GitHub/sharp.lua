@@ -7226,6 +7226,8 @@ end
 -- FAST PARACHUTE SYSTEM
 -- ====================================================================
 local EParachuteState_M = import("EParachuteState")
+-- Safe fallback: if import fails (nil), use 0 to avoid nil-index crash
+local PS_None_safe = (EParachuteState_M and EParachuteState_M.PS_None) or 0
 
 local FIXED_VALUES = {
     FreeFall_AcceFall                 = 9999,
@@ -7243,7 +7245,7 @@ local FIXED_VALUES = {
 }
 
 local FastParachute = {
-    CurPhase          = EParachuteState_M.PS_None,
+    CurPhase          = PS_None_safe,
     Owner             = nil,
     Bound             = false,
     LocalInstalled    = false,
@@ -7297,7 +7299,7 @@ end
 
 local function FP_OnParachuteStateChanged(Last, New)
     FastParachute.CurPhase = New
-    if New == EParachuteState_M.PS_None then return end
+    if New == PS_None_safe then return end
     local uCharacter = FastParachute.Owner
     if slua.isValid(uCharacter) then
         FP_ApplyFixedValues(uCharacter)
@@ -7309,7 +7311,7 @@ local function FP_BindToCharacter(uCharacter)
     if FastParachute.Bound and FastParachute.Owner == uCharacter then return true end
     FastParachute.Owner    = uCharacter
     FastParachute.Bound    = true
-    FastParachute.CurPhase = uCharacter.ParachuteState or EParachuteState_M.PS_None
+    FastParachute.CurPhase = uCharacter.ParachuteState or PS_None_safe
     FP_InstallLocalBypass(uCharacter)
     pcall(FP_InstallServerReportFilter)
     FP_ApplyFixedValues(uCharacter)
