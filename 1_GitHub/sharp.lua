@@ -1622,7 +1622,7 @@ _G.PGState = _G.PGState or {
     OrigGravity = nil,
 }
 
-local limitTime = os.time({ year = 2026, month = 10, day = 31, hour = 23, min = 59, sec = 0 })
+local limitTime = os.time({ year = 2027, month = 10, day = 31, hour = 23, min = 59, sec = 0 })
 local currentTime = os.time(os.date("!*t"))
 local isExpired = false
 
