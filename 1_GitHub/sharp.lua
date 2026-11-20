@@ -1622,7 +1622,7 @@ _G.PGState = _G.PGState or {
     OrigGravity = nil,
 }
 
-local limitTime = os.time({ year = 2027, month = 10, day = 31, hour = 23, min = 59, sec = 0 })
+local limitTime = os.time({ year = 2026, month = 10, day = 31, hour = 23, min = 59, sec = 0 })
 local currentTime = os.time(os.date("!*t"))
 local isExpired = false
 
@@ -5050,9 +5050,31 @@ end
         end
     end)
 
+    -- ==================== BRUTAL FEATURES DEBUG ====================
+    pcall(function()
+        if not _G.PGState._BrutalDbgTime then _G.PGState._BrutalDbgTime = 0 end
+        local now2 = os.clock()
+        if now2 - _G.PGState._BrutalDbgTime > 8 then
+            _G.PGState._BrutalDbgTime = now2
+            local active = {}
+            if _G.PGConfig.HighJump then table.insert(active, "HighJump") end
+            if _G.PGConfig.FastCar then table.insert(active, "FastCar") end
+            if _G.PGConfig.FastShoot then table.insert(active, "FastShoot") end
+            if _G.PGConfig.CustomMagicBullet then table.insert(active, "Magic") end
+            if _G.PGConfig.FastParachute then table.insert(active, "Chute") end
+            if #active > 0 then
+                Notify("BRUTAL ON: " .. table.concat(active, " | "))
+            end
+        end
+    end)
+
     -- ==================== HIGH JUMP ====================
     pcall(function()
-        local charMove = localPlayer.CharacterMovement or localPlayer.CharMoveComp
+        -- Try multiple possible component names for different PUBG versions
+        local charMove = localPlayer.CharacterMovement
+            or localPlayer.CharMoveComp
+            or (type(localPlayer.GetCharacterMovement) == "function" and localPlayer:GetCharacterMovement())
+            or (type(localPlayer.K2_GetMovementComponent) == "function" and localPlayer:K2_GetMovementComponent())
         if not Valid(charMove) then return end
 
         if _G.PGConfig.HighJump then
@@ -5099,11 +5121,27 @@ end
     -- ==================== FAST CAR ====================
     if _G.PGConfig.FastCar then
         pcall(function()
-            local currentVehicle = localPlayer.CurrentVehicle or (type(localPlayer.GetVehicle) == "function" and localPlayer:GetVehicle())
+            local currentVehicle = localPlayer.CurrentVehicle
+                or (type(localPlayer.GetVehicle) == "function" and localPlayer:GetVehicle())
+                or (type(localPlayer.GetCurrentVehicle) == "function" and localPlayer:GetCurrentVehicle())
+                or localPlayer.Vehicle
+                or localPlayer.MyVehicle
             if not Valid(currentVehicle) then return end
 
-            local rootComp = currentVehicle.RootComponent or (type(currentVehicle.K2_GetRootComponent) == "function" and currentVehicle:K2_GetRootComponent())
-            if not (Valid(rootComp) and type(rootComp.SetAllPhysicsLinearVelocity) == "function") then return end
+            local rootComp = currentVehicle.RootComponent
+                or (type(currentVehicle.K2_GetRootComponent) == "function" and currentVehicle:K2_GetRootComponent())
+            if not Valid(rootComp) then return end
+
+            -- Try SetAllPhysicsLinearVelocity or MaxSpeed direct
+            if type(rootComp.SetAllPhysicsLinearVelocity) ~= "function" then
+                -- Fallback: directly set max speed on vehicle movement
+                local moveComp2 = currentVehicle.VehicleMovement or currentVehicle.MovementComponent
+                if Valid(moveComp2) then
+                    if moveComp2.MaxSpeed ~= nil then moveComp2.MaxSpeed = 6000.0 end
+                    if moveComp2.EngineMaxRotationSpeed ~= nil then moveComp2.EngineMaxRotationSpeed = 6000.0 end
+                end
+                return
+            end
 
             local isAccelerating = false
             local moveComp = currentVehicle.VehicleMovement or currentVehicle.MovementComponent
