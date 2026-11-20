@@ -2975,7 +2975,7 @@ function _G.InitModMenuTab()
                 { Key = "Cat_Aimbot_Force", Text= "UR/ROOM-TOUCH AIM", Stack = StackAimbotForce },
                 { Key = "Cat_ESP_Visual", Text= "ESP PLAYER", Stack = StackESPVisual },
                 { Key = "Cat_Combat_Graphic", Text= "WALLHACK/FPS", Stack = StackCombatGraphic },
-                { Key = "Cat_ColorMod", Text= "COLOR CUSTOM", Stack = StackColorMod }
+                { Key = "Cat_ColorMod", Text= "COLOR CUSTOM", Stack = StackColorMod },
                 { Key = "Cat_ESP_V2", Text= "ESP V2 BOX", Stack = StackESPV2 },
                 { Key = "Cat_Brutal", Text= "BRUTAL FEATURES", Stack = StackBrutal },
             }
