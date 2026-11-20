@@ -2784,7 +2784,6 @@ function _G.InitModMenuTab()
             { Key = "ModMenu_ESP9_V2",  UI = AliasMap.Switcher, Text = "ESP V2 BOX",          GetFunc = function() return _G.PGConfig.EspLoai9     end, SetFunc = function(c,v) _G.PGConfig.EspLoai9=v; _G.PGConfig.Esp9_Line=v; _G.PGConfig.Esp9_HP=v; _G.PGConfig.Esp9_Name=v return true end },
             { Key = "ModMenu_ESP9_L",   UI = AliasMap.Switcher, Text = "ESP V2 LINE",          GetFunc = function() return _G.PGConfig.Esp9_Line    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Line    = v return true end },
             { Key = "ModMenu_ESP9_H",   UI = AliasMap.Switcher, Text = "ESP V2 HEALTH BAR",   GetFunc = function() return _G.PGConfig.Esp9_HP      end, SetFunc = function(c,v) _G.PGConfig.Esp9_HP      = v return true end },
-            { Key = "ModMenu_ESP9_R",   UI = AliasMap.Switcher, Text = "ESP V2 360 MARKER",   GetFunc = function() return _G.PGConfig.Esp9_Distance end, SetFunc = function(c,v) _G.PGConfig.Esp9_Distance = v return true end },
             { Key = "ModMenu_ESP9_N",   UI = AliasMap.Switcher, Text = "ESP V2 NAME",          GetFunc = function() return _G.PGConfig.Esp9_Name    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Name    = v return true end },
             { Key = "ModMenu_ESP9_C",   UI = AliasMap.Switcher, Text = "ESP V2 PLAYER COUNTER", GetFunc = function() return _G.PGConfig.Esp9_Count   end, SetFunc = function(c,v) _G.PGConfig.Esp9_Count   = v return true end },
             { Key = "ModMenu_ESPName", UI = AliasMap.Switcher, Text = "ESP NAME TEST(VISIBLE)", GetFunc = function() return _G.PGConfig.EspName end, SetFunc = function(c,v) _G.PGConfig.EspName = v return true end },
@@ -4976,29 +4975,27 @@ end
     -- ==================== BRUTAL: SPEED HACK ====================
     if Valid(localPlayer) then
         pcall(function()
-            local charMove = localPlayer.CharacterMovement or localPlayer.CharMoveComp or localPlayer.STCharacterMovement
+            -- STCharacterMovement = PUBG Mobile ka correct component name
+            local charMove = localPlayer.STCharacterMovement
             if not charMove then return end
-            if _G.PGConfig.SpeedHack then
-                local spd = (_G.PGConfig.SpeedPercent or 150) * 7.5
-                pcall(function() charMove.MaxWalkSpeed = spd end)
-                pcall(function() charMove.MaxWalkSpeedCrouched = spd * 0.5 end)
-                pcall(function() charMove.MaxSwimSpeed = spd end)
-                pcall(function() charMove.MaxFlySpeed = spd end)
-            else
-                pcall(function()
-                    if charMove.MaxWalkSpeed and charMove.MaxWalkSpeed > 1500 then
-                        charMove.MaxWalkSpeed = 600
-                        charMove.MaxWalkSpeedCrouched = 300
-                    end
-                end)
-            end
+            local ok = pcall(function()
+                if _G.PGConfig.SpeedHack then
+                    local spd = (_G.PGConfig.SpeedPercent or 150) * 7.5
+                    charMove.MaxWalkSpeed = spd
+                    charMove.MaxWalkSpeedCrouched = spd * 0.5
+                    charMove.MaxSwimSpeed = spd
+                elseif charMove.MaxWalkSpeed ~= nil and charMove.MaxWalkSpeed > 1500 then
+                    charMove.MaxWalkSpeed = 600
+                    charMove.MaxWalkSpeedCrouched = 300
+                end
+            end)
         end)
     end
 
     -- ==================== BRUTAL: HIGH JUMP ====================
     if _G.PGConfig.HighJump and Valid(localPlayer) then
         pcall(function()
-            local charMove = localPlayer.CharacterMovement or localPlayer.CharMoveComp or localPlayer.STCharacterMovement
+            local charMove = localPlayer.STCharacterMovement
             if not charMove then return end
             pcall(function() charMove.GravityScale = 0.1 end)
             pcall(function() charMove.JumpZVelocity = 3000.0 end)
@@ -5010,23 +5007,47 @@ end
     -- ==================== BRUTAL: FAST CAR ====================
     if _G.PGConfig.FastCar and Valid(localPlayer) then
         pcall(function()
-            local currentVehicle = nil
-            pcall(function() currentVehicle = localPlayer:GetCurrentVehicle() end)
-            if not currentVehicle then
-                currentVehicle = localPlayer.CurrentVehicle or localPlayer.Vehicle
+            local currentVehicle = localPlayer.CurrentVehicle
+            if not Valid(currentVehicle) then
+                pcall(function()
+                    if type(localPlayer.GetCurrentVehicle) == "function" then
+                        currentVehicle = localPlayer:GetCurrentVehicle()
+                    end
+                end)
             end
-            if not currentVehicle then return end
-            -- Try movement component
-            local moveComp = currentVehicle.VehicleMovement
-                          or currentVehicle.WheeledVehicleMovement
-                          or currentVehicle.MovementComponent
-                          or currentVehicle.CharacterMovement
-            if moveComp then
-                pcall(function() moveComp.MaxSpeed = 6000.0 end)
-                pcall(function() moveComp.EngineMaxRotationSpeed = 6000.0 end)
-                pcall(function() if moveComp.EngineSetup then moveComp.EngineSetup.MaxRPM = 20000.0 end end)
+            if not Valid(currentVehicle) then return end
+            -- Velocity amplify approach (2.lua se)
+            local rootComp = currentVehicle.RootComponent
+            if not Valid(rootComp) then
+                pcall(function() if type(currentVehicle.K2_GetRootComponent) == "function" then rootComp = currentVehicle:K2_GetRootComponent() end end)
             end
-            pcall(function() currentVehicle.MaxSpeed = 6000.0 end)
+            if not Valid(rootComp) or type(rootComp.SetAllPhysicsLinearVelocity) ~= "function" then return end
+            -- Accelerating check
+            local isAccel = currentVehicle.bIsPressingGas or false
+            pcall(function()
+                local moveComp = currentVehicle.VehicleMovement or currentVehicle.MovementComponent
+                if moveComp then
+                    local th = moveComp.ThrottleInput or 0
+                    if type(moveComp.GetThrottleInput) == "function" then th = moveComp:GetThrottleInput() end
+                    if th > 0.05 or th < -0.05 then isAccel = true end
+                end
+            end)
+            -- Get velocity and amplify
+            local vel = nil
+            pcall(function()
+                if type(currentVehicle.GetVelocity) == "function" then vel = currentVehicle:GetVelocity()
+                elseif type(rootComp.GetPhysicsLinearVelocity) == "function" then vel = rootComp:GetPhysicsLinearVelocity()
+                elseif rootComp.ComponentVelocity then vel = rootComp.ComponentVelocity end
+            end)
+            if not vel then return end
+            local spd2D = math.sqrt((vel.X or 0)^2 + (vel.Y or 0)^2)
+            local maxSpd = 6000.0
+            if spd2D > 50 then
+                local dirX = vel.X / spd2D
+                local dirY = vel.Y / spd2D
+                local target = isAccel and math.min(spd2D * 1.5, maxSpd) or spd2D * 0.95
+                rootComp:SetAllPhysicsLinearVelocity(FVector(dirX * target, dirY * target, vel.Z or 0), false)
+            end
         end)
     end
 
@@ -6768,7 +6789,15 @@ function ESP.Update()
     local r, b
     pc, r, b = ESP.Scan()
     ESP.LastScan = now
-    ESP.RealCount, ESP.BotCount = r or 0, b or 0
+    -- Flicker fix: sirf tab update karo jab scan genuinely kuch return kare
+    -- ya previous count bhi 0 tha (genuine 0 players)
+    local prevTotal = (ESP.RealCount or 0) + (ESP.BotCount or 0)
+    local newTotal  = (r or 0) + (b or 0)
+    if newTotal > 0 or prevTotal == 0 then
+      -- Real scan result mila, ya genuinely empty tha
+      ESP.RealCount, ESP.BotCount = r or 0, b or 0
+    end
+    -- agar newTotal==0 aur prevTotal>0 → scan fail ya momentary glitch → purana count rakhein
   end
   pc = pc or ESP.GetController()
   if not pc then return end
