@@ -49,9 +49,9 @@ local EGameModeType = import("EGameModeType")                                  -
 local STExtraGameStateBase = import("STExtraGameStateBase")                    -- ⬅️ ADDED
 local UKismetSystemLibrary = import("KismetSystemLibrary")                     -- ⬅️ ADDED
 local USTExtraBlueprintFunctionLibrary = import("STExtraBlueprintFunctionLibrary") -- ⬅️ ADDED
-local GameplayData = require("GameLua.GameCore.Data.GameplayData")
-local GamePlayTools = require("GameLua.Mod.BaseMod.Common.GamePlayTools")
-local MatchModeIds = require("GameLua.Mod.BaseMod.GamePlay.Config.MatchModeIdsConfig") -- ⬅️ ADDED
+local GameplayData = (function() local ok,r = pcall(require,"GameLua.GameCore.Data.GameplayData") return ok and r or nil end)()
+local GamePlayTools = (function() local ok,r = pcall(require,"GameLua.Mod.BaseMod.Common.GamePlayTools") return ok and r or nil end)()
+local MatchModeIds = (function() local ok,r = pcall(require,"GameLua.Mod.BaseMod.GamePlay.Config.MatchModeIdsConfig") return ok and r or {} end)()
 
 local KismetSystemLibrary = import("KismetSystemLibrary") -- (kept — used by your version banner)
 
@@ -1622,7 +1622,7 @@ _G.PGState = _G.PGState or {
     OrigGravity = nil,
 }
 
-local limitTime = os.time({ year = 2027, month = 10, day = 31, hour = 23, min = 59, sec = 0 })
+local limitTime = os.time({ year = 2027, month = 12, day = 31, hour = 23, min = 59, sec = 0 })
 local currentTime = os.time(os.date("!*t"))
 local isExpired = false
 
