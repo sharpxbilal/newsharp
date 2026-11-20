@@ -1953,12 +1953,14 @@ _G.SaveModSettings = function()
         if data == _G.LastConfigSaveStr then return end
         _G.LastConfigSaveStr = data
         local paths = GetConfigPaths(ConfigFileName)
+        local writeCount = 0
         for _, path in ipairs(paths) do
             local file = io.open(path, "w")
             if file then
                 file:write(data)
                 file:close()
-                break
+                writeCount = writeCount + 1
+                if writeCount >= 3 then break end  -- Write to up to 3 paths for redundancy
             end
         end
     end)
@@ -2000,20 +2002,25 @@ end
 
 local function AutoSaveLoop()
     pcall(function() if _G.SaveModSettings then _G.SaveModSettings() end end)
+    local scheduled = false
     pcall(function()
-        local okTicker, ticker = pcall(require, "common.time_ticker") 
-        if okTicker and ticker and ticker.AddTimerOnce then 
+        local okTicker, ticker = pcall(require, "common.time_ticker")
+        if okTicker and ticker and ticker.AddTimerOnce then
             ticker.AddTimerOnce(3.0, AutoSaveLoop)
+            scheduled = true
         end
     end)
+    if not scheduled then
+        _G.AutoSaveRunning = false  -- Allow restart next script load
+    end
 end
 
-if not _G.ModConfigLoaded then
-    _G.LoadModSettings()
-    -- Skin maps reload karo saved values se
-    pcall(function() if _G.ForceRefreshSkinMaps then _G.ForceRefreshSkinMaps() end end)
+-- Always load on every script start (guard removed so cold-restart works reliably)
+_G.LoadModSettings()
+pcall(function() if _G.ForceRefreshSkinMaps then _G.ForceRefreshSkinMaps() end end)
+if not _G.AutoSaveRunning then
+    _G.AutoSaveRunning = true
     AutoSaveLoop()
-    _G.ModConfigLoaded = true
 end
 
 _G.ReadLiveConfig = function()
@@ -2921,7 +2928,6 @@ function _G.InitModMenuTab()
         -- ==================== ESP VISUAL ====================
         local StackESPVisual = {
             { Key = "ModMenu_ESP1",     UI = AliasMap.Switcher, Text = "ESP (AUTO SETUP)",    GetFunc = function() return _G.PGConfig.EspVip      end, SetFunc = function(c,v) _G.PGConfig.EspVip      = v; pcall(function() _G.SaveModSettings() end) return true end },
-            { Key = "ModMenu_ESP2",     UI = AliasMap.Switcher, Text = "ESP RANGE",           GetFunc = function() return _G.PGConfig.EspDistance  end, SetFunc = function(c,v) _G.PGConfig.EspDistance  = v; pcall(function() _G.SaveModSettings() end) return true end },
             { Key = "ModMenu_ESP4",     UI = AliasMap.Switcher, Text = "ESP MARK - 360 Radar",GetFunc = function() return _G.PGConfig.EspRadar     end, SetFunc = function(c,v) _G.PGConfig.EspRadar     = v; pcall(function() _G.SaveModSettings() end) return true end },
             -- ==================== ESP V2 (inline, no separate tab) ====================
             { Key = "ModMenu_ESP9_V2",  UI = AliasMap.Switcher, Text = "ESP V2 BOX",          GetFunc = function() return _G.PGConfig.EspLoai9     end, SetFunc = function(c,v) _G.PGConfig.EspLoai9=v; _G.PGConfig.Esp9_Line=v; _G.PGConfig.Esp9_HP=v; _G.PGConfig.Esp9_Name=v; pcall(function() _G.SaveModSettings() end) return true end },
@@ -2993,8 +2999,26 @@ function _G.InitModMenuTab()
             { Key = "ModMenu_Skin_Mirado", UI = AliasMap.Slider, Text = "   Mirado (Convertible) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 27, GetFunc = function() return _G.PGState.CustomTextData.SkinMirado or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinMirado = v; if _G.VehicleSkins[1915001] and _G.VehicleSkins[1915001][v] then _G.VehicleSkinMap[1915001] = _G.VehicleSkins[1915001][v] end; pcall(function() _G.SaveModSettings() end) return true end }
         }
 
-        -- ==================== COLOR MOD REMOVED ====================
-        local StackColorMod = {}
+        -- ==================== COLOR MOD ====================
+        local StackColorMod = {
+            { Key = "ColorMod_Title", UI = AliasMap.Title, Text = "🎨 COLOR SETTINGS" },
+            { Key = "ColorMod_Visible", UI = AliasMap.Slider, Text = "Visible Color",
+              Min = 1, Max = 7, Step = 1,
+              GetFunc = function() return _G.ColorConfig.VisibleColor end,
+              SetFunc = function(c,v) _G.ColorConfig.VisibleColor = math.floor(v); pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ColorMod_Invisible", UI = AliasMap.Slider, Text = "Invisible Color",
+              Min = 1, Max = 7, Step = 1,
+              GetFunc = function() return _G.ColorConfig.InvisibleColor end,
+              SetFunc = function(c,v) _G.ColorConfig.InvisibleColor = math.floor(v); pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ColorMod_Brightness", UI = AliasMap.Slider, Text = "Brightness",
+              Min = 1, Max = 50, Step = 1,
+              GetFunc = function() return _G.ColorConfig.Brightness end,
+              SetFunc = function(c,v) _G.ColorConfig.Brightness = math.floor(v); pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ColorMod_Glow", UI = AliasMap.Slider, Text = "Glow",
+              Min = 0.5, Max = 10.0, Step = 0.5,
+              GetFunc = function() return _G.ColorConfig.Glow end,
+              SetFunc = function(c,v) _G.ColorConfig.Glow = v; pcall(function() _G.SaveModSettings() end) return true end },
+        }
 
         -- ==================== DEFINE MENU PAGE ====================
         -- ==================== ESP V2 STACK ====================
@@ -4496,8 +4520,35 @@ local function MainLoop()
         end
     end)
 
-    -- Magic Bullet logic has been removed from this version
-    -- All global magic bullet variables disabled
+    -- =================== MAGIC BULLET SETUP (2.lua exact) ===================
+    local mHead_Global, mBody_Global, mLegs_Global = 1.0, 1.0, 1.0
+    local runInject_Global = false
+
+    pcall(function()
+        if _G.PGConfig.CustomMagicBullet then
+            runInject_Global = true
+            mHead_Global = 1.0; mBody_Global = 1.0; mLegs_Global = 1.0
+            if _G.PGState.CustomTextData then
+                local cData = _G.PGState.CustomTextData
+                if cData.MagicHead ~= nil then mHead_Global = tonumber(cData.MagicHead) or mHead_Global end
+                if cData.MagicBody ~= nil then mBody_Global = tonumber(cData.MagicBody) or mBody_Global end
+                if cData.MagicLegs ~= nil then mLegs_Global = tonumber(cData.MagicLegs) or mLegs_Global end
+            end
+        end
+
+        if runInject_Global then
+            local currentMagicHash = "M_"..tostring(mHead_Global).."_"..tostring(mBody_Global).."_"..tostring(mLegs_Global)
+            if _G.PGState.LastMagicConfigHash ~= currentMagicHash then
+                _G.PGState.MagicUpdateVersion = (_G.PGState.MagicUpdateVersion or 0) + 1
+                _G.PGState.LastMagicConfigHash = currentMagicHash
+            end
+        else
+            if _G.PGState.LastMagicConfigHash ~= "OFF" then
+                _G.PGState.MagicUpdateVersion = (_G.PGState.MagicUpdateVersion or 0) + 1
+                _G.PGState.LastMagicConfigHash = "OFF"
+            end
+        end
+    end)
 
     pcall(function()
         local allCharacters = {}
@@ -4621,8 +4672,98 @@ local function MainLoop()
                         UndoColorBodyV2(enemy, markData)
                     end
 
-                    -- Magic Bullet hitbox modification removed from this version
-                    -- Physics asset override functionality disabled
+                    -- =================== MAGIC BULLET: PhysicsAsset hitbox scaling (2.lua exact) ===================
+                    pcall(function()
+                        local EnemyMesh = eMesh
+                        if slua.isValid(EnemyMesh) then
+                            local uniqueID = type(enemy.GetUniqueID) == "function" and enemy:GetUniqueID() or tostring(enemy.PlayerKey or enemy)
+
+                            if markData.MagicBulletHash == _G.PGState.LastMagicConfigHash and markData.MagicTargetID == uniqueID then
+                                return
+                            end
+
+                            local PhysicsAsset = EnemyMesh.PhysicsAssetOverride
+                            if not slua.isValid(PhysicsAsset) and EnemyMesh.SkeletalMesh then PhysicsAsset = EnemyMesh.SkeletalMesh.PhysicsAsset end
+
+                            if slua.isValid(PhysicsAsset) and PhysicsAsset.SkeletalBodySetups then
+                                if not _G.AK_ModdedPhysAssets then _G.AK_ModdedPhysAssets = {} end
+                                local PhysAssetName = "DefaultPhys"
+                                pcall(function() PhysAssetName = PhysicsAsset:GetName() end)
+
+                                if _G.AK_ModdedPhysAssets[PhysAssetName] ~= _G.PGState.LastMagicConfigHash then
+                                    if not _G.AK_OrigHitboxes then _G.AK_OrigHitboxes = {} end
+                                    if not _G.AK_OrigHitboxes[PhysAssetName] then _G.AK_OrigHitboxes[PhysAssetName] = {} end
+                                    local OrigHitboxData = _G.AK_OrigHitboxes[PhysAssetName]
+
+                                    local SkeletalBodySetups = PhysicsAsset.SkeletalBodySetups
+                                    local numSetups = type(SkeletalBodySetups.Num) == "function" and SkeletalBodySetups:Num() or #SkeletalBodySetups
+                                    local limit = numSetups > 50 and 50 or numSetups
+
+                                    for i = 1, limit do
+                                        local BodySetup = type(SkeletalBodySetups.Get) == "function" and SkeletalBodySetups:Get(i-1) or SkeletalBodySetups[i]
+                                        if slua.isValid(BodySetup) then
+                                            local LowerBoneName = string.lower(tostring(BodySetup.BoneName))
+                                            local MatchedBoneKey = nil
+                                            for k, _ in pairs(BoneScaleMap) do
+                                                if string.find(LowerBoneName, k, 1, true) then MatchedBoneKey = k; break end
+                                            end
+
+                                            if MatchedBoneKey then
+                                                local TargetScale = 1.0
+                                                if runInject_Global then TargetScale = BoneScaleMap[MatchedBoneKey] end
+
+                                                local AggGeom = BodySetup.AggGeom
+                                                local BoxElems   = AggGeom and AggGeom.BoxElems   or BodySetup.BoxElems
+                                                local SphereElems = AggGeom and AggGeom.SphereElems or BodySetup.SphereElems
+                                                local SphylElems  = AggGeom and AggGeom.SphylElems  or BodySetup.SphylElems
+
+                                                local BoxElem    = GetFirstElemSafe(BoxElems)
+                                                local SphereElem = GetFirstElemSafe(SphereElems)
+                                                local SphylElem  = GetFirstElemSafe(SphylElems)
+
+                                                if not OrigHitboxData[MatchedBoneKey] then
+                                                    OrigHitboxData[MatchedBoneKey] = { Box = nil, Sphere = nil, Sphyl = nil }
+                                                    if BoxElem    then OrigHitboxData[MatchedBoneKey].Box    = { X = BoxElem.X, Y = BoxElem.Y, Z = BoxElem.Z } end
+                                                    if SphereElem then OrigHitboxData[MatchedBoneKey].Sphere = { Radius = SphereElem.Radius } end
+                                                    if SphylElem  then OrigHitboxData[MatchedBoneKey].Sphyl  = { Radius = SphylElem.Radius, Length = SphylElem.Length } end
+                                                end
+
+                                                local OrigElemData = OrigHitboxData[MatchedBoneKey]
+
+                                                if OrigElemData.Box and BoxElem then
+                                                    BoxElem.X = OrigElemData.Box.X * TargetScale
+                                                    BoxElem.Y = OrigElemData.Box.Y * TargetScale
+                                                    BoxElem.Z = OrigElemData.Box.Z * TargetScale
+                                                    if type(BoxElems.Set) == "function" then BoxElems:Set(0, BoxElem) else BoxElems[1] = BoxElem end
+                                                    if AggGeom then AggGeom.BoxElems = BoxElems; BodySetup.AggGeom = AggGeom else BodySetup.BoxElems = BoxElems end
+                                                end
+
+                                                if OrigElemData.Sphere and SphereElem then
+                                                    SphereElem.Radius = OrigElemData.Sphere.Radius * TargetScale
+                                                    if type(SphereElems.Set) == "function" then SphereElems:Set(0, SphereElem) else SphereElems[1] = SphereElem end
+                                                    if AggGeom then AggGeom.SphereElems = SphereElems; BodySetup.AggGeom = AggGeom else BodySetup.SphereElems = SphereElems end
+                                                end
+
+                                                if OrigElemData.Sphyl and SphylElem then
+                                                    SphylElem.Radius = OrigElemData.Sphyl.Radius * TargetScale
+                                                    SphylElem.Length = OrigElemData.Sphyl.Length * TargetScale
+                                                    if type(SphylElems.Set) == "function" then SphylElems:Set(0, SphylElem) else SphylElems[1] = SphylElem end
+                                                    if AggGeom then AggGeom.SphylElems = SphylElems; BodySetup.AggGeom = AggGeom else BodySetup.SphylElems = SphylElems end
+                                                end
+                                            end
+                                        end
+                                    end
+                                    _G.AK_ModdedPhysAssets[PhysAssetName] = _G.PGState.LastMagicConfigHash
+                                end
+
+                                if EnemyMesh.SetPhysicsAsset then EnemyMesh:SetPhysicsAsset(PhysicsAsset) end
+                                EnemyMesh.PhysicsAssetOverride = PhysicsAsset
+
+                                markData.MagicBulletHash = _G.PGState.LastMagicConfigHash
+                                markData.MagicTargetID = uniqueID
+                            end
+                        end
+                    end)
 
                     local distM = 0
                     pcall(function() distM = localPlayer:GetDistanceTo(enemy) / 100 end)
