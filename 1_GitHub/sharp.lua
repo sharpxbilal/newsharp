@@ -1617,6 +1617,9 @@ _G.PGState = _G.PGState or {
     LastAimbotConfigString = "",
     PrevGraphicsState = {},
     SkinWasApplied = false,
+    LastMagicConfigHash = "",
+    MagicUpdateVersion = 0,
+    OrigGravity = nil,
 }
 
 local limitTime = os.time({ year = 2027, month = 10, day = 31, hour = 23, min = 59, sec = 0 })
@@ -2882,16 +2885,16 @@ function _G.InitModMenuTab()
               SetFunc = function(c,v) _G.PGConfig.CustomMagicBullet = v return true end },
             { Key = "ModMenu_Brutal_MagicHead", UI = AliasMap.Slider, Text = "   HEAD Damage", ExpandHandle = "ModMenu_Magic_Ex2",
               MinValue = 0, MaxValue = 100, min = 0, max = 100,
-              GetFunc = function() return math.floor(((_G.PGState.CustomTextData.MagicHead or 1.0) / 5.0) * 100 + 0.5) end,
-              SetFunc = function(c,v) _G.PGState.CustomTextData.MagicHead = (v / 100.0) * 5.0 return true end },
+              GetFunc = function() local d = _G.PGState.CustomTextData; return math.floor((((d and d.MagicHead) or 1.0) / 5.0) * 100 + 0.5) end,
+              SetFunc = function(c,v) if _G.PGState.CustomTextData then _G.PGState.CustomTextData.MagicHead = (v / 100.0) * 5.0 end return true end },
             { Key = "ModMenu_Brutal_MagicBody", UI = AliasMap.Slider, Text = "   BODY Damage", ExpandHandle = "ModMenu_Magic_Ex2",
               MinValue = 0, MaxValue = 100, min = 0, max = 100,
-              GetFunc = function() return math.floor(((_G.PGState.CustomTextData.MagicBody or 1.0) / 5.0) * 100 + 0.5) end,
-              SetFunc = function(c,v) _G.PGState.CustomTextData.MagicBody = (v / 100.0) * 5.0 return true end },
+              GetFunc = function() local d = _G.PGState.CustomTextData; return math.floor((((d and d.MagicBody) or 1.0) / 5.0) * 100 + 0.5) end,
+              SetFunc = function(c,v) if _G.PGState.CustomTextData then _G.PGState.CustomTextData.MagicBody = (v / 100.0) * 5.0 end return true end },
             { Key = "ModMenu_Brutal_MagicLegs", UI = AliasMap.Slider, Text = "   LEGS Damage", ExpandHandle = "ModMenu_Magic_Ex2",
               MinValue = 0, MaxValue = 100, min = 0, max = 100,
-              GetFunc = function() return math.floor(((_G.PGState.CustomTextData.MagicLegs or 1.0) / 5.0) * 100 + 0.5) end,
-              SetFunc = function(c,v) _G.PGState.CustomTextData.MagicLegs = (v / 100.0) * 5.0 return true end },
+              GetFunc = function() local d = _G.PGState.CustomTextData; return math.floor((((d and d.MagicLegs) or 1.0) / 5.0) * 100 + 0.5) end,
+              SetFunc = function(c,v) if _G.PGState.CustomTextData then _G.PGState.CustomTextData.MagicLegs = (v / 100.0) * 5.0 end return true end },
 
             -- FAST SHOOT
             { Key = "ModMenu_FastShoot", UI = AliasMap.Switcher, Text = "FAST SHOOT",
@@ -3898,7 +3901,7 @@ local function MainLoop()
 
     if _G.PGState.CustomTextData == nil then 
         -- Sirf actually-used fields (aimbot ab unified logic mein hardcoded presets use karta hai)
-        _G.PGState.CustomTextData = {OuterSpeed = 10, InnerSpeed = 10, HRecoil = 0.3, VRecoil = 0.3, IpadViewFOV = 120}
+        _G.PGState.CustomTextData = {OuterSpeed = 10, InnerSpeed = 10, HRecoil = 0.3, VRecoil = 0.3, IpadViewFOV = 120, MagicHead = 1.0, MagicBody = 1.0, MagicLegs = 1.0}
     end
 
     local okData, GameplayData = pcall(require, "GameLua.GameCore.Data.GameplayData") 
@@ -4223,7 +4226,7 @@ local function MainLoop()
             end
 
             for _, entity in ipairs(entities) do
-                local anyWeaponModOn = _G.PGConfig.CustomHRecoil or _G.PGConfig.CustomVRecoil or _G.PGConfig.LessShake or _G.PGConfig.Accuracy or _G.PGConfig.Crosshair or _G.PGConfig.GodMode or _G.PGConfig.AutoHead or _G.PGConfig.CustomAimbot or _G.PGConfig.CustomAimbotClose
+                local anyWeaponModOn = _G.PGConfig.CustomHRecoil or _G.PGConfig.CustomVRecoil or _G.PGConfig.LessShake or _G.PGConfig.Accuracy or _G.PGConfig.Crosshair or _G.PGConfig.GodMode or _G.PGConfig.AutoHead or _G.PGConfig.CustomAimbot or _G.PGConfig.CustomAimbotClose or _G.PGConfig.FastShoot
 
                 if anyWeaponModOn then
                     if not entity.OriginalStatsCached then
