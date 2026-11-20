@@ -2020,7 +2020,151 @@ _G.ReadLiveConfig = function()
     if _G.SaveModSettings then _G.SaveModSettings() end
 end
 
--- ========================================== 
+-- ==========================================
+-- FAST PARACHUTE SYSTEM (2.lua exact)
+-- ==========================================
+local EParachuteState_M = pcall(function()
+    EParachuteState_M = import("EParachuteState")
+end) and EParachuteState_M or { PS_None = 0, PS_Opening = 1, PS_Opened = 2 }
+pcall(function() EParachuteState_M = import("EParachuteState") end)
+
+local FP_FIXED = {
+    FreeFall_AcceFall                 = 9999,
+    FreeFall_MaxForwardSpeed          = 9999,
+    FreeFall_MaxForwardExtraFallSpeed = 9999,
+    FreeFall_AcceRight                = 9999,
+    FreeFall_MaxRightSpeed            = 9999,
+    FreeFall_MaxRightExtraFallSpeed   = 0,
+    FreeFall_MaxDiveExtraFallSpeed    = 9999,
+    Opened_AcceFall                   = 9999,
+    Opened_MaxFreeFallSpeed           = 9999,
+    Opened_AcceForward                = 9999,
+    Opened_MaxForwardSpeed            = 9999,
+    UseNewVerifyHeightInParachuteOpen = 9999,
+}
+
+FastParachute = {
+    CurPhase       = 0,
+    Owner          = nil,
+    Bound          = false,
+    LocalInstalled = false,
+    DsFilterInstalled = false,
+}
+
+local function FP_ApplyFixedValues(uCharacter)
+    if not slua.isValid(uCharacter) then return end
+    local ParaComp = uCharacter.ParachuteComponent
+    if not slua.isValid(ParaComp) then return end
+    for field, value in pairs(FP_FIXED) do
+        if ParaComp[field] ~= nil then
+            pcall(function() ParaComp[field] = value end)
+        end
+    end
+end
+
+local function FP_InstallLocalBypass(uCharacter)
+    if FastParachute.LocalInstalled then return end
+    local ParaComp = uCharacter.ParachuteComponent
+    if not slua.isValid(ParaComp) then return end
+    if ParaComp.__fp_installed then FastParachute.LocalInstalled = true return end
+    pcall(function() ParaComp.StartParachuteAvgSpeedMonitor = function(_s) end end)
+    pcall(function() ParaComp.StopParachuteAvgSpeedMonitor  = function(_s) end end)
+    pcall(function() ParaComp.TickParachuteAvgSpeedSample   = function(_s) end end)
+    pcall(function() ParaComp.WriteParachuteAvgSpeedToReplayOnDS = function(_s, pk, arr) end end)
+    ParaComp.__fp_installed = true
+    FastParachute.LocalInstalled = true
+end
+
+local function FP_InstallServerFilter()
+    if FastParachute.DsFilterInstalled then return end
+    pcall(function()
+        local CGameState = GameplayData and GameplayData.GetGameState and GameplayData.GetGameState()
+        if not slua.isValid(CGameState) then return end
+        local Mgr = CGameState.ReplayRecordManager
+        if not slua.isValid(Mgr) or Mgr.__fp_filter then FastParachute.DsFilterInstalled = true return end
+        local orig = Mgr.RPC_Replay_ReportFloatArray
+        Mgr.RPC_Replay_ReportFloatArray = function(s, pk, rid, arr) if rid == 7 then return end if orig then return orig(s, pk, rid, arr) end end
+        Mgr.__fp_filter = true
+        FastParachute.DsFilterInstalled = true
+    end)
+end
+
+local function FP_OnStateChanged(Last, New)
+    FastParachute.CurPhase = New
+    if New == 0 then return end
+    if slua.isValid(FastParachute.Owner) then
+        FP_ApplyFixedValues(FastParachute.Owner)
+    end
+end
+
+local function FP_BindToCharacter(uCharacter)
+    if not slua.isValid(uCharacter) then return false end
+    if FastParachute.Bound and FastParachute.Owner == uCharacter then return true end
+    FastParachute.Owner    = uCharacter
+    FastParachute.Bound    = true
+    FastParachute.CurPhase = uCharacter.ParachuteState or 0
+    FP_InstallLocalBypass(uCharacter)
+    pcall(FP_InstallServerFilter)
+    FP_ApplyFixedValues(uCharacter)
+    return true
+end
+
+local function FP_Watcher()
+    if not _G.PGConfig.FastParachute then
+        pcall(function()
+            local ok, ticker = pcall(require, "common.time_ticker")
+            if ok and ticker and ticker.AddTimerOnce then ticker.AddTimerOnce(0.5, FP_Watcher) end
+        end)
+        return
+    end
+    pcall(function()
+        local pc = nil
+        pcall(function() pc = GameplayData and GameplayData.GetPlayerController and GameplayData.GetPlayerController() end)
+        if not slua.isValid(pc) then
+            FastParachute.Bound = false FastParachute.Owner = nil return
+        end
+        local bInGame = false
+        pcall(function()
+            if pc.IsInFight and pc:IsInFight() then bInGame = true
+            elseif pc.IsInPlane and pc:IsInPlane() then bInGame = true
+            elseif pc.IsInParachute and pc:IsInParachute() then bInGame = true
+            elseif pc.GetCurrentStateType then
+                local ok2, EStateType = pcall(import, "EStateType")
+                if ok2 and EStateType then
+                    local st = pc:GetCurrentStateType()
+                    if st == EStateType.State_InPlane or st == EStateType.State_ParachuteJump
+                       or st == EStateType.State_ParachuteOpen or st == EStateType.State_Fight then
+                        bInGame = true
+                    end
+                end
+            end
+        end)
+        if not bInGame then return end
+        local uCharacter = nil
+        pcall(function() uCharacter = pc:GetPlayerCharacterSafety() end)
+        if not slua.isValid(uCharacter) then return end
+        FP_BindToCharacter(uCharacter)
+        local curState = nil
+        pcall(function() curState = uCharacter.ParachuteState end)
+        if curState ~= nil and curState ~= FastParachute.CurPhase then
+            FP_OnStateChanged(FastParachute.CurPhase, curState)
+        end
+    end)
+    pcall(function()
+        local ok, ticker = pcall(require, "common.time_ticker")
+        if ok and ticker and ticker.AddTimerOnce then ticker.AddTimerOnce(0.5, FP_Watcher) end
+    end)
+end
+
+-- Start FP_Watcher after 10s (same as 2.lua)
+if not isExpired then
+    pcall(function()
+        local ok, ticker = pcall(require, "common.time_ticker")
+        if ok and ticker and ticker.AddTimerOnce then ticker.AddTimerOnce(10.0, FP_Watcher) end
+    end)
+end
+
+-- ==========================================
 -- SKIN MOD SYSTEM (FULL — with VIP_Attachments)
 -- ==========================================
 _G.VIP_Attachments = _G.VIP_Attachments or {
@@ -2776,19 +2920,17 @@ function _G.InitModMenuTab()
         
         -- ==================== ESP VISUAL ====================
         local StackESPVisual = {
-            { Key = "ModMenu_ESP1",     UI = AliasMap.Switcher, Text = "ESP (AUTO SETUP)",    GetFunc = function() return _G.PGConfig.EspVip      end, SetFunc = function(c,v) _G.PGConfig.EspVip      = v return true end },
-            { Key = "ModMenu_ESP2",     UI = AliasMap.Switcher, Text = "ESP RANGE",           GetFunc = function() return _G.PGConfig.EspDistance  end, SetFunc = function(c,v) _G.PGConfig.EspDistance  = v return true end },
-            { Key = "ModMenu_ESP4",     UI = AliasMap.Switcher, Text = "ESP MARK - 360 Radar",GetFunc = function() return _G.PGConfig.EspRadar     end, SetFunc = function(c,v) _G.PGConfig.EspRadar     = v return true end },
-            { Key = "ModMenu_ESP5",     UI = AliasMap.Switcher, Text = "ESP BOX FRAME",       GetFunc = function() return _G.PGConfig.Esp5         end, SetFunc = function(c,v) _G.PGConfig.Esp5         = v return true end },
+            { Key = "ModMenu_ESP1",     UI = AliasMap.Switcher, Text = "ESP (AUTO SETUP)",    GetFunc = function() return _G.PGConfig.EspVip      end, SetFunc = function(c,v) _G.PGConfig.EspVip      = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP2",     UI = AliasMap.Switcher, Text = "ESP RANGE",           GetFunc = function() return _G.PGConfig.EspDistance  end, SetFunc = function(c,v) _G.PGConfig.EspDistance  = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP4",     UI = AliasMap.Switcher, Text = "ESP MARK - 360 Radar",GetFunc = function() return _G.PGConfig.EspRadar     end, SetFunc = function(c,v) _G.PGConfig.EspRadar     = v; pcall(function() _G.SaveModSettings() end) return true end },
             -- ==================== ESP V2 (inline, no separate tab) ====================
-            { Key = "ModMenu_ESP9_V2",  UI = AliasMap.Switcher, Text = "ESP V2 BOX",          GetFunc = function() return _G.PGConfig.EspLoai9     end, SetFunc = function(c,v) _G.PGConfig.EspLoai9=v; _G.PGConfig.Esp9_Line=v; _G.PGConfig.Esp9_HP=v; _G.PGConfig.Esp9_Name=v return true end },
-            { Key = "ModMenu_ESP9_L",   UI = AliasMap.Switcher, Text = "ESP V2 LINE",          GetFunc = function() return _G.PGConfig.Esp9_Line    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Line    = v return true end },
-            { Key = "ModMenu_ESP9_H",   UI = AliasMap.Switcher, Text = "ESP V2 HEALTH BAR",   GetFunc = function() return _G.PGConfig.Esp9_HP      end, SetFunc = function(c,v) _G.PGConfig.Esp9_HP      = v return true end },
-            { Key = "ModMenu_ESP9_N",   UI = AliasMap.Switcher, Text = "ESP V2 NAME",          GetFunc = function() return _G.PGConfig.Esp9_Name    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Name    = v return true end },
-            { Key = "ModMenu_ESP9_C",   UI = AliasMap.Switcher, Text = "ESP V2 PLAYER COUNTER", GetFunc = function() return _G.PGConfig.Esp9_Count   end, SetFunc = function(c,v) _G.PGConfig.Esp9_Count   = v return true end },
-            { Key = "ModMenu_ESPName", UI = AliasMap.Switcher, Text = "ESP NAME TEST(VISIBLE)", GetFunc = function() return _G.PGConfig.EspName end, SetFunc = function(c,v) _G.PGConfig.EspName = v return true end },
-            { Key = "ModMenu_ESPOutline_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ ESP OUTLINE", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.EspOutline end, SetFunc = function(c,v) _G.PGConfig.EspOutline = v return true end },
-            { Key = "ModMenu_ESPOutline_Thickness", UI = AliasMap.Slider, Text = "   Outline Thickness (1% is perfect)", ExpandHandle = "ModMenu_ESPOutline_Ex", MinValue = 1, MaxValue = 20, min = 1, max = 20, GetFunc = function() return _G.PGConfig.OutlineThickness end, SetFunc = function(c,v) _G.PGConfig.OutlineThickness = v return true end }
+            { Key = "ModMenu_ESP9_V2",  UI = AliasMap.Switcher, Text = "ESP V2 BOX",          GetFunc = function() return _G.PGConfig.EspLoai9     end, SetFunc = function(c,v) _G.PGConfig.EspLoai9=v; _G.PGConfig.Esp9_Line=v; _G.PGConfig.Esp9_HP=v; _G.PGConfig.Esp9_Name=v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP9_L",   UI = AliasMap.Switcher, Text = "ESP V2 LINE",          GetFunc = function() return _G.PGConfig.Esp9_Line    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Line    = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP9_H",   UI = AliasMap.Switcher, Text = "ESP V2 HEALTH BAR",   GetFunc = function() return _G.PGConfig.Esp9_HP      end, SetFunc = function(c,v) _G.PGConfig.Esp9_HP      = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP9_N",   UI = AliasMap.Switcher, Text = "ESP V2 NAME",          GetFunc = function() return _G.PGConfig.Esp9_Name    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Name    = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP9_C",   UI = AliasMap.Switcher, Text = "ESP V2 PLAYER COUNTER", GetFunc = function() return _G.PGConfig.Esp9_Count   end, SetFunc = function(c,v) _G.PGConfig.Esp9_Count   = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESPOutline_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ ESP OUTLINE", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.EspOutline end, SetFunc = function(c,v) _G.PGConfig.EspOutline = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESPOutline_Thickness", UI = AliasMap.Slider, Text = "   Outline Thickness (1% is perfect)", ExpandHandle = "ModMenu_ESPOutline_Ex", MinValue = 1, MaxValue = 20, min = 1, max = 20, GetFunc = function() return _G.PGConfig.OutlineThickness end, SetFunc = function(c,v) _G.PGConfig.OutlineThickness = v; pcall(function() _G.SaveModSettings() end) return true end }
         }
 
         -- ==================== AIMBOT ORIGINAL (Legacy, tanpa GodMode) ====================
@@ -2799,10 +2941,10 @@ function _G.InitModMenuTab()
         -- 4 flat buttons jaise ESP: Aimbot / Ignore Knocked / Ignore Bots / Visibility Check
         -- Ek hi setting saari guns pe kaam karti hai (Hipfire + Scope + Shotgun + Sniper)
         local StackAimbotForce = {
-            { Key = "ModMenu_AT_Enable", UI = AliasMap.Switcher, Text = "Aimbot", GetFunc = function() return _G.PGConfig.AimTouchEnable end, SetFunc = function(c,v) _G.PGConfig.AimTouchEnable = v return true end },
-            { Key = "ModMenu_AT_IgKnock", UI = AliasMap.Switcher, Text = "Ignore Knocked", GetFunc = function() return _G.PGConfig.AimTouchIgKnock end, SetFunc = function(c,v) _G.PGConfig.AimTouchIgKnock = v return true end },
-            { Key = "ModMenu_AT_IgBot", UI = AliasMap.Switcher, Text = "Ignore Bots", GetFunc = function() return _G.PGConfig.AimTouchIgBot end, SetFunc = function(c,v) _G.PGConfig.AimTouchIgBot = v return true end },
-            { Key = "ModMenu_AT_Vis", UI = AliasMap.Switcher, Text = "Visibility Check", GetFunc = function() return _G.PGConfig.AimTouchVisCheck end, SetFunc = function(c,v) _G.PGConfig.AimTouchVisCheck = v return true end }
+            { Key = "ModMenu_AT_Enable", UI = AliasMap.Switcher, Text = "Aimbot", GetFunc = function() return _G.PGConfig.AimTouchEnable end, SetFunc = function(c,v) _G.PGConfig.AimTouchEnable = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_AT_IgKnock", UI = AliasMap.Switcher, Text = "Ignore Knocked", GetFunc = function() return _G.PGConfig.AimTouchIgKnock end, SetFunc = function(c,v) _G.PGConfig.AimTouchIgKnock = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_AT_IgBot", UI = AliasMap.Switcher, Text = "Ignore Bots", GetFunc = function() return _G.PGConfig.AimTouchIgBot end, SetFunc = function(c,v) _G.PGConfig.AimTouchIgBot = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_AT_Vis", UI = AliasMap.Switcher, Text = "Visibility Check", GetFunc = function() return _G.PGConfig.AimTouchVisCheck end, SetFunc = function(c,v) _G.PGConfig.AimTouchVisCheck = v; pcall(function() _G.SaveModSettings() end) return true end }
         }
 
         -- ==================== MAGIC BULLET - REMOVED ====================
@@ -2811,65 +2953,48 @@ function _G.InitModMenuTab()
 
         -- ==================== COMBAT GRAPHIC (hanya God Mode dan graphics) ====================
         local StackCombatGraphic = {
-            { Key = "ModMenu_Ipad_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ iPad View (Tampilan iPad)", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.IpadView end, SetFunc = function(c,v) _G.PGConfig.IpadView = v return true end },
-            { Key = "ModMenu_Ipad_FOV", UI = AliasMap.Slider, Text = "   FOV Angle (Sudut Pandang)", ExpandHandle = "ModMenu_Ipad_Ex", MinValue = 1, MaxValue = 100, min = 1, max = 100, GetFunc = function() return (_G.PGState.CustomTextData.IpadViewFOV or 120) - 80 end, SetFunc = function(c,v) _G.PGState.CustomTextData.IpadViewFOV = 80 + v return true end },
-            { Key = "ModMenu_165FPS", UI = AliasMap.Switcher, Text = "Unlock 165 FPS (If turning off, will take effect next match)", GetFunc = function() return _G.PGConfig.UnlockFPS end, SetFunc = function(c,v) _G.PGConfig.UnlockFPS = v; if v then _G.PGState.GraphicsUnlocked = false end return true end },
-            { Key = "ModMenu_WallColor", UI = AliasMap.Switcher, Text = "Wallhack & Color (Green & Red)", GetFunc = function() return _G.PGConfig.wallhackng end, SetFunc = function(c,v) _G.PGConfig.wallhackng = v; _G.PGConfig.ColorBodyV2 = v return true end },
-            { Key = "ModMenu_BlackSky", UI = AliasMap.Switcher, Text = "Black Sky (NIGGA SKY)", GetFunc = function() return _G.PGConfig.BlackSky end, SetFunc = function(c,v) _G.PGConfig.BlackSky = v return true end },
-            { Key = "ModMenu_RemoveFog", UI = AliasMap.Switcher, Text = "Remove Fog (Hilangkan Kabut - If turning off, will take effect next match)", GetFunc = function() return _G.PGConfig.RemoveFog end, SetFunc = function(c,v) _G.PGConfig.RemoveFog = v return true end },
+            { Key = "ModMenu_Ipad_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ iPad View (Tampilan iPad)", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.IpadView end, SetFunc = function(c,v) _G.PGConfig.IpadView = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Ipad_FOV", UI = AliasMap.Slider, Text = "   FOV Angle (Sudut Pandang)", ExpandHandle = "ModMenu_Ipad_Ex", MinValue = 1, MaxValue = 100, min = 1, max = 100, GetFunc = function() return (_G.PGState.CustomTextData.IpadViewFOV or 120) - 80 end, SetFunc = function(c,v) _G.PGState.CustomTextData.IpadViewFOV = 80 + v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_165FPS", UI = AliasMap.Switcher, Text = "Unlock 165 FPS (If turning off, will take effect next match)", GetFunc = function() return _G.PGConfig.UnlockFPS end, SetFunc = function(c,v) _G.PGConfig.UnlockFPS = v; if v then _G.PGState.GraphicsUnlocked = false end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_WallColor", UI = AliasMap.Switcher, Text = "Wallhack & Color (Green & Red)", GetFunc = function() return _G.PGConfig.wallhackng end, SetFunc = function(c,v) _G.PGConfig.wallhackng = v; _G.PGConfig.ColorBodyV2 = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_BlackSky", UI = AliasMap.Switcher, Text = "Black Sky (NIGGA SKY)", GetFunc = function() return _G.PGConfig.BlackSky end, SetFunc = function(c,v) _G.PGConfig.BlackSky = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_RemoveFog", UI = AliasMap.Switcher, Text = "Remove Fog (Hilangkan Kabut - If turning off, will take effect next match)", GetFunc = function() return _G.PGConfig.RemoveFog end, SetFunc = function(c,v) _G.PGConfig.RemoveFog = v; pcall(function() _G.SaveModSettings() end) return true end },
         }
 
         -- ==================== SKIN MOD (BARU) ====================
         local StackSkinMod = {
-            { Key = "ModMenu_Skin_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ SKIN MOD MENU", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.ModSkin end, SetFunc = function(c,v) _G.PGConfig.ModSkin = v return true end },
+            { Key = "ModMenu_Skin_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ SKIN MOD MENU", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.ModSkin end, SetFunc = function(c,v) _G.PGConfig.ModSkin = v; pcall(function() _G.SaveModSettings() end) return true end },
             { Key = "ModMenu_Skin_Suit", UI = AliasMap.Slider, Text = "   Outfit (1 to 87 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 80, GetFunc = function() return _G.PGState.CustomTextData.SkinSuit or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinSuit = v; if _G.OutfitSkins and _G.OutfitSkins.Suit[v] then _G.OutfitMap.Suit = _G.OutfitSkins.Suit[v] end; pcall(function() _G.SaveModSettings() end) return true end },
             { Key = "ModMenu_Skin_Bag", UI = AliasMap.Slider, Text = "   Bag (Backpack)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 16, GetFunc = function() return _G.PGState.CustomTextData.SkinBag or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinBag = v; if _G.OutfitSkins and _G.OutfitSkins.Bag[v] then _G.OutfitMap.Bag = _G.OutfitSkins.Bag[v] end; pcall(function() _G.SaveModSettings() end) return true end },
             { Key = "ModMenu_Skin_Helmet", UI = AliasMap.Slider, Text = "   Helmet", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 12, GetFunc = function() return _G.PGState.CustomTextData.SkinHelmet or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinHelmet = v; if _G.OutfitSkins and _G.OutfitSkins.Helmet[v] then _G.OutfitMap.Helmet = _G.OutfitSkins.Helmet[v] end; pcall(function() _G.SaveModSettings() end) return true end },
-            { Key = "ModMenu_Skin_M416", UI = AliasMap.Slider, Text = "   M416 Skin (1 to 10 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 9, GetFunc = function() return _G.PGState.CustomTextData.SkinM416 or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinM416 = v; if _G.skinIdMappings[101004] and _G.skinIdMappings[101004][v] then _G.WeaponSkinMap[101004] = _G.skinIdMappings[101004][v] end return true end },
-            { Key = "ModMenu_Skin_AKM", UI = AliasMap.Slider, Text = "   AKM Skin (1 to 8 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 8, GetFunc = function() return _G.PGState.CustomTextData.SkinAKM or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinAKM = v; if _G.skinIdMappings[101001] and _G.skinIdMappings[101001][v] then _G.WeaponSkinMap[101001] = _G.skinIdMappings[101001][v] end return true end },
-            { Key = "ModMenu_Skin_SCAR", UI = AliasMap.Slider, Text = "   SCAR-L Skin (1 to 8 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 8, GetFunc = function() return _G.PGState.CustomTextData.SkinSCAR or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinSCAR = v; if _G.skinIdMappings[101003] and _G.skinIdMappings[101003][v] then _G.WeaponSkinMap[101003] = _G.skinIdMappings[101003][v] end return true end },
-            { Key = "ModMenu_Skin_M762", UI = AliasMap.Slider, Text = "   Beryl M762 Skin (1 to 9 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 8, GetFunc = function() return _G.PGState.CustomTextData.SkinM762 or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinM762 = v; if _G.skinIdMappings[101008] and _G.skinIdMappings[101008][v] then _G.WeaponSkinMap[101008] = _G.skinIdMappings[101008][v] end return true end },
-            { Key = "ModMenu_Skin_AUG", UI = AliasMap.Slider, Text = "   AUG Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 7, GetFunc = function() return _G.PGState.CustomTextData.SkinAUG or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinAUG = v; if _G.skinIdMappings[101006] and _G.skinIdMappings[101006][v] then _G.WeaponSkinMap[101006] = _G.skinIdMappings[101006][v] end return true end },
-            { Key = "ModMenu_Skin_Honey", UI = AliasMap.Slider, Text = "   Honey Badger Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinHoney or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinHoney = v; if _G.skinIdMappings[101012] and _G.skinIdMappings[101012][v] then _G.WeaponSkinMap[101012] = _G.skinIdMappings[101012][v] end return true end },
-            { Key = "ModMenu_Skin_QBZ", UI = AliasMap.Slider, Text = "   QBZ Skin ( 1 to 3)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 3, GetFunc = function() return _G.PGState.CustomTextData.SkinQBZ or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinQBZ = v; if _G.skinIdMappings[101007] and _G.skinIdMappings[101007][v] then _G.WeaponSkinMap[101007] = _G.skinIdMappings[101007][v] end return true end },
-            { Key = "ModMenu_Skin_ASM", UI = AliasMap.Slider, Text = "   ASM Abakan Skin ( 1 to 2)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinASM or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinASM = v; if _G.skinIdMappings[101101] and _G.skinIdMappings[101101][v] then _G.WeaponSkinMap[101101] = _G.skinIdMappings[101101][v] end return true end },
-            { Key = "ModMenu_Skin_ACE32", UI = AliasMap.Slider, Text = "   ACE32 Skin ( 1 to 2)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinACE32 or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinACE32 = v; if _G.skinIdMappings[101102] and _G.skinIdMappings[101102][v] then _G.WeaponSkinMap[101102] = _G.skinIdMappings[101102][v] end return true end },
-            { Key = "ModMenu_Skin_UMP", UI = AliasMap.Slider, Text = "   UMP45 Skin (1 to 6 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 6, GetFunc = function() return _G.PGState.CustomTextData.SkinUMP or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinUMP = v; if _G.skinIdMappings[102002] and _G.skinIdMappings[102002][v] then _G.WeaponSkinMap[102002] = _G.skinIdMappings[102002][v] end return true end },
-            { Key = "ModMenu_Skin_UZI", UI = AliasMap.Slider, Text = "   UZI Skin (1 to 2 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinUZI or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinUZI = v; if _G.skinIdMappings[102001] and _G.skinIdMappings[102001][v] then _G.WeaponSkinMap[102001] = _G.skinIdMappings[102001][v] end return true end },
-            { Key = "ModMenu_Skin_Vector", UI = AliasMap.Slider, Text = "   Vector Skin (1 to 2 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinVector or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinVector = v; if _G.skinIdMappings[102003] and _G.skinIdMappings[102003][v] then _G.WeaponSkinMap[102003] = _G.skinIdMappings[102003][v] end return true end },
-            { Key = "ModMenu_Skin_Groza", UI = AliasMap.Slider, Text = "   Groza Skin (1 to 2 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinGroza or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinGroza = v; if _G.skinIdMappings[101005] and _G.skinIdMappings[101005][v] then _G.WeaponSkinMap[101005] = _G.skinIdMappings[101005][v] end return true end },
-            { Key = "ModMenu_Skin_Kar98K", UI = AliasMap.Slider, Text = "   Kar98K Skin (1 to 3 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 3, GetFunc = function() return _G.PGState.CustomTextData.SkinKar98K or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinKar98K = v; if _G.skinIdMappings[103001] and _G.skinIdMappings[103001][v] then _G.WeaponSkinMap[103001] = _G.skinIdMappings[103001][v] end return true end },
-            { Key = "ModMenu_Skin_M24", UI = AliasMap.Slider, Text = "   M24 Skin (1 to 2 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinM24 or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinM24 = v; if _G.skinIdMappings[103002] and _G.skinIdMappings[103002][v] then _G.WeaponSkinMap[103002] = _G.skinIdMappings[103002][v] end return true end },
-            { Key = "ModMenu_Skin_AWM", UI = AliasMap.Slider, Text = "   AWM Skin (1 to 4 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 4, GetFunc = function() return _G.PGState.CustomTextData.SkinAWM or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinAWM = v; if _G.skinIdMappings[103003] and _G.skinIdMappings[103003][v] then _G.WeaponSkinMap[103003] = _G.skinIdMappings[103003][v] end return true end },
-            { Key = "ModMenu_Skin_AMR", UI = AliasMap.Slider, Text = "   AMR Skin (1 to 3 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 3, GetFunc = function() return _G.PGState.CustomTextData.SkinAMR or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinAMR = v; if _G.skinIdMappings[103012] and _G.skinIdMappings[103012][v] then _G.WeaponSkinMap[103012] = _G.skinIdMappings[103012][v] end return true end },
-            { Key = "ModMenu_Skin_S12K", UI = AliasMap.Slider, Text = "   S12K Skin (1 to 2 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinS12K or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinS12K = v; if _G.skinIdMappings[104003] and _G.skinIdMappings[104003][v] then _G.WeaponSkinMap[104003] = _G.skinIdMappings[104003][v] end return true end },
-            { Key = "ModMenu_Skin_DBS", UI = AliasMap.Slider, Text = "   DBS Skin (1 to 3 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 3, GetFunc = function() return _G.PGState.CustomTextData.SkinDBS or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinDBS = v; if _G.skinIdMappings[104004] and _G.skinIdMappings[104004][v] then _G.WeaponSkinMap[104004] = _G.skinIdMappings[104004][v] end return true end },
-            { Key = "ModMenu_Skin_Dacia", UI = AliasMap.Slider, Text = "   Dacia (Car) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 90, GetFunc = function() return _G.PGState.CustomTextData.SkinDacia or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinDacia = v; if _G.VehicleSkins[1903001] and _G.VehicleSkins[1903001][v] then _G.VehicleSkinMap[1903001] = _G.VehicleSkins[1903001][v] end return true end },
-            { Key = "ModMenu_Skin_UAZ", UI = AliasMap.Slider, Text = "   UAZ (Jeep) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 90, GetFunc = function() return _G.PGState.CustomTextData.SkinUAZ or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinUAZ = v; if _G.VehicleSkins[1908001] and _G.VehicleSkins[1908001][v] then _G.VehicleSkinMap[1908001] = _G.VehicleSkins[1908001][v] end return true end },
-            { Key = "ModMenu_Skin_Coupe", UI = AliasMap.Slider, Text = "   Coupe RB (Sports) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 70, GetFunc = function() return _G.PGState.CustomTextData.SkinCoupe or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinCoupe = v; if _G.VehicleSkins[1961001] and _G.VehicleSkins[1961001][v] then _G.VehicleSkinMap[1961001] = _G.VehicleSkins[1961001][v] end return true end },
-            { Key = "ModMenu_Skin_Buggy", UI = AliasMap.Slider, Text = "   Buggy Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 50, GetFunc = function() return _G.PGState.CustomTextData.SkinBuggy or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinBuggy = v; if _G.VehicleSkins[1907001] and _G.VehicleSkins[1907001][v] then _G.VehicleSkinMap[1907001] = _G.VehicleSkins[1907001][v] end return true end },
-            { Key = "ModMenu_Skin_Mirado", UI = AliasMap.Slider, Text = "   Mirado (Convertible) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 27, GetFunc = function() return _G.PGState.CustomTextData.SkinMirado or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinMirado = v; if _G.VehicleSkins[1915001] and _G.VehicleSkins[1915001][v] then _G.VehicleSkinMap[1915001] = _G.VehicleSkins[1915001][v] end return true end }
+            { Key = "ModMenu_Skin_M416", UI = AliasMap.Slider, Text = "   M416 Skin (1 to 10 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 9, GetFunc = function() return _G.PGState.CustomTextData.SkinM416 or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinM416 = v; if _G.skinIdMappings[101004] and _G.skinIdMappings[101004][v] then _G.WeaponSkinMap[101004] = _G.skinIdMappings[101004][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_AKM", UI = AliasMap.Slider, Text = "   AKM Skin (1 to 8 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 8, GetFunc = function() return _G.PGState.CustomTextData.SkinAKM or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinAKM = v; if _G.skinIdMappings[101001] and _G.skinIdMappings[101001][v] then _G.WeaponSkinMap[101001] = _G.skinIdMappings[101001][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_SCAR", UI = AliasMap.Slider, Text = "   SCAR-L Skin (1 to 8 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 8, GetFunc = function() return _G.PGState.CustomTextData.SkinSCAR or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinSCAR = v; if _G.skinIdMappings[101003] and _G.skinIdMappings[101003][v] then _G.WeaponSkinMap[101003] = _G.skinIdMappings[101003][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_M762", UI = AliasMap.Slider, Text = "   Beryl M762 Skin (1 to 9 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 8, GetFunc = function() return _G.PGState.CustomTextData.SkinM762 or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinM762 = v; if _G.skinIdMappings[101008] and _G.skinIdMappings[101008][v] then _G.WeaponSkinMap[101008] = _G.skinIdMappings[101008][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_AUG", UI = AliasMap.Slider, Text = "   AUG Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 7, GetFunc = function() return _G.PGState.CustomTextData.SkinAUG or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinAUG = v; if _G.skinIdMappings[101006] and _G.skinIdMappings[101006][v] then _G.WeaponSkinMap[101006] = _G.skinIdMappings[101006][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_Honey", UI = AliasMap.Slider, Text = "   Honey Badger Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinHoney or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinHoney = v; if _G.skinIdMappings[101012] and _G.skinIdMappings[101012][v] then _G.WeaponSkinMap[101012] = _G.skinIdMappings[101012][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_QBZ", UI = AliasMap.Slider, Text = "   QBZ Skin ( 1 to 3)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 3, GetFunc = function() return _G.PGState.CustomTextData.SkinQBZ or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinQBZ = v; if _G.skinIdMappings[101007] and _G.skinIdMappings[101007][v] then _G.WeaponSkinMap[101007] = _G.skinIdMappings[101007][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_ASM", UI = AliasMap.Slider, Text = "   ASM Abakan Skin ( 1 to 2)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinASM or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinASM = v; if _G.skinIdMappings[101101] and _G.skinIdMappings[101101][v] then _G.WeaponSkinMap[101101] = _G.skinIdMappings[101101][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_ACE32", UI = AliasMap.Slider, Text = "   ACE32 Skin ( 1 to 2)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinACE32 or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinACE32 = v; if _G.skinIdMappings[101102] and _G.skinIdMappings[101102][v] then _G.WeaponSkinMap[101102] = _G.skinIdMappings[101102][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_UMP", UI = AliasMap.Slider, Text = "   UMP45 Skin (1 to 6 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 6, GetFunc = function() return _G.PGState.CustomTextData.SkinUMP or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinUMP = v; if _G.skinIdMappings[102002] and _G.skinIdMappings[102002][v] then _G.WeaponSkinMap[102002] = _G.skinIdMappings[102002][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_UZI", UI = AliasMap.Slider, Text = "   UZI Skin (1 to 2 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinUZI or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinUZI = v; if _G.skinIdMappings[102001] and _G.skinIdMappings[102001][v] then _G.WeaponSkinMap[102001] = _G.skinIdMappings[102001][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_Vector", UI = AliasMap.Slider, Text = "   Vector Skin (1 to 2 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinVector or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinVector = v; if _G.skinIdMappings[102003] and _G.skinIdMappings[102003][v] then _G.WeaponSkinMap[102003] = _G.skinIdMappings[102003][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_Groza", UI = AliasMap.Slider, Text = "   Groza Skin (1 to 2 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinGroza or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinGroza = v; if _G.skinIdMappings[101005] and _G.skinIdMappings[101005][v] then _G.WeaponSkinMap[101005] = _G.skinIdMappings[101005][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_Kar98K", UI = AliasMap.Slider, Text = "   Kar98K Skin (1 to 3 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 3, GetFunc = function() return _G.PGState.CustomTextData.SkinKar98K or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinKar98K = v; if _G.skinIdMappings[103001] and _G.skinIdMappings[103001][v] then _G.WeaponSkinMap[103001] = _G.skinIdMappings[103001][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_M24", UI = AliasMap.Slider, Text = "   M24 Skin (1 to 2 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinM24 or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinM24 = v; if _G.skinIdMappings[103002] and _G.skinIdMappings[103002][v] then _G.WeaponSkinMap[103002] = _G.skinIdMappings[103002][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_AWM", UI = AliasMap.Slider, Text = "   AWM Skin (1 to 4 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 4, GetFunc = function() return _G.PGState.CustomTextData.SkinAWM or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinAWM = v; if _G.skinIdMappings[103003] and _G.skinIdMappings[103003][v] then _G.WeaponSkinMap[103003] = _G.skinIdMappings[103003][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_AMR", UI = AliasMap.Slider, Text = "   AMR Skin (1 to 3 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 3, GetFunc = function() return _G.PGState.CustomTextData.SkinAMR or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinAMR = v; if _G.skinIdMappings[103012] and _G.skinIdMappings[103012][v] then _G.WeaponSkinMap[103012] = _G.skinIdMappings[103012][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_S12K", UI = AliasMap.Slider, Text = "   S12K Skin (1 to 2 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 2, GetFunc = function() return _G.PGState.CustomTextData.SkinS12K or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinS12K = v; if _G.skinIdMappings[104003] and _G.skinIdMappings[104003][v] then _G.WeaponSkinMap[104003] = _G.skinIdMappings[104003][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_DBS", UI = AliasMap.Slider, Text = "   DBS Skin (1 to 3 custom)", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 3, GetFunc = function() return _G.PGState.CustomTextData.SkinDBS or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinDBS = v; if _G.skinIdMappings[104004] and _G.skinIdMappings[104004][v] then _G.WeaponSkinMap[104004] = _G.skinIdMappings[104004][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_Dacia", UI = AliasMap.Slider, Text = "   Dacia (Car) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 90, GetFunc = function() return _G.PGState.CustomTextData.SkinDacia or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinDacia = v; if _G.VehicleSkins[1903001] and _G.VehicleSkins[1903001][v] then _G.VehicleSkinMap[1903001] = _G.VehicleSkins[1903001][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_UAZ", UI = AliasMap.Slider, Text = "   UAZ (Jeep) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 90, GetFunc = function() return _G.PGState.CustomTextData.SkinUAZ or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinUAZ = v; if _G.VehicleSkins[1908001] and _G.VehicleSkins[1908001][v] then _G.VehicleSkinMap[1908001] = _G.VehicleSkins[1908001][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_Coupe", UI = AliasMap.Slider, Text = "   Coupe RB (Sports) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 70, GetFunc = function() return _G.PGState.CustomTextData.SkinCoupe or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinCoupe = v; if _G.VehicleSkins[1961001] and _G.VehicleSkins[1961001][v] then _G.VehicleSkinMap[1961001] = _G.VehicleSkins[1961001][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_Buggy", UI = AliasMap.Slider, Text = "   Buggy Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 50, GetFunc = function() return _G.PGState.CustomTextData.SkinBuggy or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinBuggy = v; if _G.VehicleSkins[1907001] and _G.VehicleSkins[1907001][v] then _G.VehicleSkinMap[1907001] = _G.VehicleSkins[1907001][v] end; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_Skin_Mirado", UI = AliasMap.Slider, Text = "   Mirado (Convertible) Skin", ExpandHandle = "ModMenu_Skin_Ex", MinValue = 1, MaxValue = 27, GetFunc = function() return _G.PGState.CustomTextData.SkinMirado or 1 end, SetFunc = function(c,v) _G.PGState.CustomTextData.SkinMirado = v; if _G.VehicleSkins[1915001] and _G.VehicleSkins[1915001][v] then _G.VehicleSkinMap[1915001] = _G.VehicleSkins[1915001][v] end; pcall(function() _G.SaveModSettings() end) return true end }
         }
 
-        -- ==================== COLOR MOD (Warna untuk ESP dan Wallhack) ====================
-        local StackColorMod = {
-            { Key = "COLOR_Visible", UI = AliasMap.Switcher, Text = "Visible Color (ESP & WH)",
-              SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
-              SwitcherValue = {1,2,3,4,5,6,7},
-              GetFunc = function() return _G.ColorConfig.VisibleColor end,
-              SetFunc = function(_, v) _G.ColorConfig.VisibleColor = v; _G.SaveModSettings(); return true end },
-            { Key = "COLOR_Invisible", UI = AliasMap.Switcher, Text = "Invisible Color (ESP & WH)",
-              SwitcherText = {"Red","White","Yellow","Green","Cyan","Blue","Purple"},
-              SwitcherValue = {1,2,3,4,5,6,7},
-              GetFunc = function() return _G.ColorConfig.InvisibleColor end,
-              SetFunc = function(_, v) _G.ColorConfig.InvisibleColor = v; _G.SaveModSettings(); return true end },
-            { Key = "COLOR_Brightness", UI = AliasMap.Slider, Text = "Brightness (1-50)", Min = 1, Max = 50, Step = 1,
-              GetFunc = function() return _G.ColorConfig.Brightness end,
-              SetFunc = function(_, v) _G.ColorConfig.Brightness = v; _G.SaveModSettings(); return true end },
-            { Key = "COLOR_Glow", UI = AliasMap.Slider, Text = "Glow Intensity (0-10) (WH)", Min = 0, Max = 10, Step = 0.5,
-              GetFunc = function() return _G.ColorConfig.Glow end,
-              SetFunc = function(_, v) _G.ColorConfig.Glow = v; _G.SaveModSettings(); return true end }
-        }
+        -- ==================== COLOR MOD REMOVED ====================
+        local StackColorMod = {}
 
         -- ==================== DEFINE MENU PAGE ====================
         -- ==================== ESP V2 STACK ====================
@@ -2886,12 +3011,12 @@ function _G.InitModMenuTab()
                 _G.PGConfig.Esp9_Name    = v
                 return true
               end },
-            { Key = "ModMenu_ESP9_Ex",     UI = AliasMap.TitleSwitcher, Text = "   ESP BOX",        ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.EspLoai9     end, SetFunc = function(c,v) _G.PGConfig.EspLoai9     = v return true end },
-            { Key = "ModMenu_ESP9_Count",  UI = AliasMap.TitleSwitcher, Text = "   PLAYER COUNTER",  ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Count    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Count    = v return true end },
-            { Key = "ModMenu_ESP9_Line",   UI = AliasMap.TitleSwitcher, Text = "   ESP LINE",       ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Line     end, SetFunc = function(c,v) _G.PGConfig.Esp9_Line     = v return true end },
-            { Key = "ModMenu_ESP9_HP",     UI = AliasMap.TitleSwitcher, Text = "   ESP HEALTH BAR", ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_HP       end, SetFunc = function(c,v) _G.PGConfig.Esp9_HP       = v return true end },
-            { Key = "ModMenu_ESP9_Radar",  UI = AliasMap.TitleSwitcher, Text = "   360 MARKER",     ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Distance  end, SetFunc = function(c,v) _G.PGConfig.Esp9_Distance  = v return true end },
-            { Key = "ModMenu_ESP9_Name",   UI = AliasMap.TitleSwitcher, Text = "   ESP NAME",        ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Name      end, SetFunc = function(c,v) _G.PGConfig.Esp9_Name      = v return true end },
+            { Key = "ModMenu_ESP9_Ex",     UI = AliasMap.TitleSwitcher, Text = "   ESP BOX",        ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.EspLoai9     end, SetFunc = function(c,v) _G.PGConfig.EspLoai9     = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP9_Count",  UI = AliasMap.TitleSwitcher, Text = "   PLAYER COUNTER",  ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Count    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Count    = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP9_Line",   UI = AliasMap.TitleSwitcher, Text = "   ESP LINE",       ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Line     end, SetFunc = function(c,v) _G.PGConfig.Esp9_Line     = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP9_HP",     UI = AliasMap.TitleSwitcher, Text = "   ESP HEALTH BAR", ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_HP       end, SetFunc = function(c,v) _G.PGConfig.Esp9_HP       = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP9_Radar",  UI = AliasMap.TitleSwitcher, Text = "   360 MARKER",     ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Distance  end, SetFunc = function(c,v) _G.PGConfig.Esp9_Distance  = v; pcall(function() _G.SaveModSettings() end) return true end },
+            { Key = "ModMenu_ESP9_Name",   UI = AliasMap.TitleSwitcher, Text = "   ESP NAME",        ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.Esp9_Name      end, SetFunc = function(c,v) _G.PGConfig.Esp9_Name      = v; pcall(function() _G.SaveModSettings() end) return true end },
         }
 
         -- ==================== BRUTAL STACK ====================
@@ -2905,15 +3030,15 @@ function _G.InitModMenuTab()
             { Key = "ModMenu_Brutal_MagicHead", UI = AliasMap.Slider, Text = "   HEAD Damage", ExpandHandle = "ModMenu_Magic_Ex2",
               MinValue = 0, MaxValue = 100, min = 0, max = 100,
               GetFunc = function() return math.floor(((_G.PGState.CustomTextData.MagicHead or 1.0) / 5.0) * 100 + 0.5) end,
-              SetFunc = function(c,v) _G.PGState.CustomTextData.MagicHead = (v / 100.0) * 5.0 return true end },
+              SetFunc = function(c,v) _G.PGState.CustomTextData.MagicHead = (v / 100.0) * 5.0; pcall(function() _G.SaveModSettings() end) return true end },
             { Key = "ModMenu_Brutal_MagicBody", UI = AliasMap.Slider, Text = "   BODY Damage", ExpandHandle = "ModMenu_Magic_Ex2",
               MinValue = 0, MaxValue = 100, min = 0, max = 100,
               GetFunc = function() return math.floor(((_G.PGState.CustomTextData.MagicBody or 1.0) / 5.0) * 100 + 0.5) end,
-              SetFunc = function(c,v) _G.PGState.CustomTextData.MagicBody = (v / 100.0) * 5.0 return true end },
+              SetFunc = function(c,v) _G.PGState.CustomTextData.MagicBody = (v / 100.0) * 5.0; pcall(function() _G.SaveModSettings() end) return true end },
             { Key = "ModMenu_Brutal_MagicLegs", UI = AliasMap.Slider, Text = "   LEGS Damage", ExpandHandle = "ModMenu_Magic_Ex2",
               MinValue = 0, MaxValue = 100, min = 0, max = 100,
               GetFunc = function() return math.floor(((_G.PGState.CustomTextData.MagicLegs or 1.0) / 5.0) * 100 + 0.5) end,
-              SetFunc = function(c,v) _G.PGState.CustomTextData.MagicLegs = (v / 100.0) * 5.0 return true end },
+              SetFunc = function(c,v) _G.PGState.CustomTextData.MagicLegs = (v / 100.0) * 5.0; pcall(function() _G.SaveModSettings() end) return true end },
 
             -- FAST SHOOT
             { Key = "ModMenu_FastShoot", UI = AliasMap.Switcher, Text = "FAST SHOOT",
@@ -2942,7 +3067,7 @@ function _G.InitModMenuTab()
             { Key = "ModMenu_SpeedPercent", UI = AliasMap.Slider, Text = "   Speed % (100-500)", ExpandHandle = "ModMenu_SpeedHack_Ex",
               MinValue = 0, MaxValue = 100,
               GetFunc = function() return ((_G.PGConfig.SpeedPercent or 150) - 100) / 4 end,
-              SetFunc = function(c,v) _G.PGConfig.SpeedPercent = 100 + (v * 4) return true end },
+              SetFunc = function(c,v) _G.PGConfig.SpeedPercent = 100 + (v * 4); pcall(function() _G.SaveModSettings() end) return true end },
 
             -- FAST PARACHUTE
             { Key = "ModMenu_FastParachute", UI = AliasMap.Switcher, Text = "FAST PARACHUTE",
@@ -4279,21 +4404,18 @@ local function MainLoop()
                         entity.BulletFireSpeed = 500000.0
                     end
                     if _G.PGConfig.CustomMagicBullet then
-                        entity.BulletFireSpeed = 500000.0
-                        entity.GameDeviationFactor = 0.0
+                        -- 2.lua EXACT: BulletFireSpeed + BaseDamage * MagicHead multiplier
+                        entity.BulletFireSpeed      = 500000.0
+                        entity.GameDeviationFactor  = 0.0
                         entity.GameDeviationAccuracy = 0.0
-                        -- Use damage multiplier from sliders
-                        local orig = entity.OriginalStatsCached
-                        local origDmg = (orig and orig.BaseDamage) or entity.BaseDamage or 40
-                        local cData = _G.PGState and _G.PGState.CustomTextData
-                        local mult = (cData and cData.MagicBody) or 1.0
-                        if mult > 0 then
-                            pcall(function() entity.BaseDamage = origDmg * mult end)
-                        end
-                        pcall(function() if entity.BulletHitCountMax ~= nil then entity.BulletHitCountMax = 999 end end)
-                        pcall(function() if entity.PenetrateWallCount ~= nil then entity.PenetrateWallCount = 999 end end)
+                        local cData   = _G.PGState and _G.PGState.CustomTextData
+                        local mHead   = (cData and cData.MagicHead) or 1.0
+                        local origDmg = (entity.OriginalStatsCached and entity.OriginalStatsCached.BaseDamage)
+                                        or entity.BaseDamage or 40
+                        entity.BaseDamage = origDmg * mHead
+                        pcall(function() if entity.BulletHitCountMax ~= nil     then entity.BulletHitCountMax = 999     end end)
+                        pcall(function() if entity.PenetrateWallCount ~= nil    then entity.PenetrateWallCount = 999    end end)
                         pcall(function() if entity.PenetrateWallDamageRate ~= nil then entity.PenetrateWallDamageRate = 1.0 end end)
-                        pcall(function() if entity.ExplodeRadius ~= nil then entity.ExplodeRadius = 0 end end)
                     end
                     
                     if entity.AutoAimingConfig then
@@ -4972,23 +5094,48 @@ end
         end
     end)
 
-    -- ==================== BRUTAL: SPEED HACK ====================
+    -- ==================== BRUTAL: SPEED HACK (2.lua exact: AttrModifyComp) ====================
     if Valid(localPlayer) then
         pcall(function()
-            -- STCharacterMovement = PUBG Mobile ka correct component name
-            local charMove = localPlayer.STCharacterMovement
-            if not charMove then return end
-            local ok = pcall(function()
-                if _G.PGConfig.SpeedHack then
-                    local spd = (_G.PGConfig.SpeedPercent or 150) * 7.5
-                    charMove.MaxWalkSpeed = spd
-                    charMove.MaxWalkSpeedCrouched = spd * 0.5
-                    charMove.MaxSwimSpeed = spd
-                elseif charMove.MaxWalkSpeed ~= nil and charMove.MaxWalkSpeed > 1500 then
-                    charMove.MaxWalkSpeed = 600
-                    charMove.MaxWalkSpeedCrouched = 300
+            if _G.PGConfig.SpeedHack then
+                -- Primary: AttrModifyComp SpeedRate (2.lua exact approach)
+                local attrDone = false
+                pcall(function()
+                    if localPlayer.AttrModifyComp and slua.isValid(localPlayer.AttrModifyComp) then
+                        local base = _G.PGConfig.SpeedPercent or 150
+                        local rate = (base / 100.0) - 1.0
+                        -- remove old, add new
+                        if _G.SH_ModifyId then
+                            pcall(function() localPlayer.AttrModifyComp:RemoveModifyItemFromCache(_G.SH_ModifyId) end)
+                            _G.SH_ModifyId = nil
+                        end
+                        _G.SH_ModifyId = localPlayer.AttrModifyComp:AddModifyItemAndCache("SpeedRate", 0, rate, true, localPlayer, false)
+                        attrDone = true
+                    end
+                end)
+                -- Fallback: STCharacterMovement
+                if not attrDone then
+                    pcall(function()
+                        local charMove = localPlayer.STCharacterMovement
+                        if charMove then
+                            local spd = (_G.PGConfig.SpeedPercent or 150) * 7.5
+                            charMove.MaxWalkSpeed = spd
+                            charMove.MaxWalkSpeedCrouched = spd * 0.5
+                            charMove.MaxSwimSpeed = spd
+                        end
+                    end)
                 end
-            end)
+            else
+                -- Speed Hack off → remove AttrModify if exists
+                if _G.SH_ModifyId then
+                    pcall(function()
+                        if localPlayer.AttrModifyComp and slua.isValid(localPlayer.AttrModifyComp) then
+                            localPlayer.AttrModifyComp:RemoveModifyItemFromCache(_G.SH_ModifyId)
+                        end
+                    end)
+                    _G.SH_ModifyId = nil
+                end
+            end
         end)
     end
 
@@ -5051,18 +5198,7 @@ end
         end)
     end
 
-    -- ==================== BRUTAL: FAST PARACHUTE ====================
-    if _G.PGConfig.FastParachute and Valid(localPlayer) then
-        pcall(function()
-            local paraComp = localPlayer.ParachuteComponent
-            if not paraComp then return end
-            pcall(function() paraComp.FreeFall_AcceFall = 9999 end)
-            pcall(function() paraComp.FreeFall_MaxForwardSpeed = 9999 end)
-            pcall(function() paraComp.Opened_MaxFreeFallSpeed = 9999 end)
-            pcall(function() paraComp.FreeFall_MaxFallSpeed = 9999 end)
-            pcall(function() paraComp.Opened_MaxForwardSpeed = 9999 end)
-        end)
-    end
+    -- Fast Parachute: handled by FP_Watcher ticker (not MainLoop) — no code here
 end
 
 _G.PGState.LoopToken = (_G.PGState.LoopToken or 0) + 1
