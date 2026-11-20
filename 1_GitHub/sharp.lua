@@ -1558,7 +1558,9 @@ _G.PGConfig = _G.PGConfig or {
     EspRadar = false, 
     Esp5 = false, 
     Esp6 = false, 
-    Esp7 = true,
+    Esp7 = false,
+    SpeedHack = false,
+    SpeedPercent = 150,
     Esp8 = false,
     EspAntenna = false, 
     EspName = false,
@@ -1619,7 +1621,7 @@ _G.PGState = _G.PGState or {
     SkinWasApplied = false,
 }
 
-local limitTime = os.time({ year = 2027, month = 10, day = 31, hour = 23, min = 59, sec = 0 })
+local limitTime = os.time({ year = 2027, month = 12, day = 31, hour = 23, min = 59, sec = 0 })
 local currentTime = os.time(os.date("!*t"))
 local isExpired = false
 
@@ -2772,10 +2774,16 @@ function _G.InitModMenuTab()
         
         -- ==================== ESP VISUAL ====================
         local StackESPVisual = {
-            { Key = "ModMenu_ESP1", UI = AliasMap.Switcher, Text = "ESP (AUTO SETUP)", GetFunc = function() return _G.PGConfig.EspVip end, SetFunc = function(c,v) _G.PGConfig.EspVip = v return true end },
-            { Key = "ModMenu_ESP2", UI = AliasMap.Switcher, Text = "ESP RANGE", GetFunc = function() return _G.PGConfig.EspDistance end, SetFunc = function(c,v) _G.PGConfig.EspDistance = v return true end },
-            { Key = "ModMenu_ESP4", UI = AliasMap.Switcher, Text = "ESP MARK - 360 Radar", GetFunc = function() return _G.PGConfig.EspRadar end, SetFunc = function(c,v) _G.PGConfig.EspRadar = v return true end },
-            { Key = "ModMenu_ESP5", UI = AliasMap.Switcher, Text = "ESP BOX FRAME", GetFunc = function() return _G.PGConfig.Esp5 end, SetFunc = function(c,v) _G.PGConfig.Esp5 = v return true end },
+            { Key = "ModMenu_ESP1",     UI = AliasMap.Switcher, Text = "ESP (AUTO SETUP)",    GetFunc = function() return _G.PGConfig.EspVip      end, SetFunc = function(c,v) _G.PGConfig.EspVip      = v return true end },
+            { Key = "ModMenu_ESP2",     UI = AliasMap.Switcher, Text = "ESP RANGE",           GetFunc = function() return _G.PGConfig.EspDistance  end, SetFunc = function(c,v) _G.PGConfig.EspDistance  = v return true end },
+            { Key = "ModMenu_ESP4",     UI = AliasMap.Switcher, Text = "ESP MARK - 360 Radar",GetFunc = function() return _G.PGConfig.EspRadar     end, SetFunc = function(c,v) _G.PGConfig.EspRadar     = v return true end },
+            { Key = "ModMenu_ESP5",     UI = AliasMap.Switcher, Text = "ESP BOX FRAME",       GetFunc = function() return _G.PGConfig.Esp5         end, SetFunc = function(c,v) _G.PGConfig.Esp5         = v return true end },
+            -- ==================== ESP V2 (inline, no separate tab) ====================
+            { Key = "ModMenu_ESP9_V2",  UI = AliasMap.Switcher, Text = "ESP V2 BOX",          GetFunc = function() return _G.PGConfig.EspLoai9     end, SetFunc = function(c,v) _G.PGConfig.EspLoai9=v; _G.PGConfig.Esp9_Line=v; _G.PGConfig.Esp9_HP=v; _G.PGConfig.Esp9_Name=v return true end },
+            { Key = "ModMenu_ESP9_L",   UI = AliasMap.Switcher, Text = "ESP V2 LINE",          GetFunc = function() return _G.PGConfig.Esp9_Line    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Line    = v return true end },
+            { Key = "ModMenu_ESP9_H",   UI = AliasMap.Switcher, Text = "ESP V2 HEALTH BAR",   GetFunc = function() return _G.PGConfig.Esp9_HP      end, SetFunc = function(c,v) _G.PGConfig.Esp9_HP      = v return true end },
+            { Key = "ModMenu_ESP9_R",   UI = AliasMap.Switcher, Text = "ESP V2 360 MARKER",   GetFunc = function() return _G.PGConfig.Esp9_Distance end, SetFunc = function(c,v) _G.PGConfig.Esp9_Distance = v return true end },
+            { Key = "ModMenu_ESP9_N",   UI = AliasMap.Switcher, Text = "ESP V2 NAME",          GetFunc = function() return _G.PGConfig.Esp9_Name    end, SetFunc = function(c,v) _G.PGConfig.Esp9_Name    = v return true end },
             { Key = "ModMenu_ESPName", UI = AliasMap.Switcher, Text = "ESP NAME TEST(VISIBLE)", GetFunc = function() return _G.PGConfig.EspName end, SetFunc = function(c,v) _G.PGConfig.EspName = v return true end },
             { Key = "ModMenu_ESPOutline_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ ESP OUTLINE", ExpandIndex = 0, GetFunc = function() return _G.PGConfig.EspOutline end, SetFunc = function(c,v) _G.PGConfig.EspOutline = v return true end },
             { Key = "ModMenu_ESPOutline_Thickness", UI = AliasMap.Slider, Text = "   Outline Thickness (1% is perfect)", ExpandHandle = "ModMenu_ESPOutline_Ex", MinValue = 1, MaxValue = 20, min = 1, max = 20, GetFunc = function() return _G.PGConfig.OutlineThickness end, SetFunc = function(c,v) _G.PGConfig.OutlineThickness = v return true end }
@@ -2927,12 +2935,12 @@ function _G.InitModMenuTab()
 
             -- SPEED HACK with bypass
             { Key = "ModMenu_SpeedHack_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ SPEED HACK", ExpandIndex = 0,
-              GetFunc = function() return _G.MemoryConfig and _G.MemoryConfig.SpeedHack end,
-              SetFunc = function(c,v) if SetMemorySpeedHack then SetMemorySpeedHack(v) end return true end },
+              GetFunc = function() return _G.PGConfig.SpeedHack end,
+              SetFunc = function(c,v) _G.PGConfig.SpeedHack = v return true end },
             { Key = "ModMenu_SpeedPercent", UI = AliasMap.Slider, Text = "   Speed % (100-500)", ExpandHandle = "ModMenu_SpeedHack_Ex",
               MinValue = 0, MaxValue = 100,
-              GetFunc = function() return ((_G.MemoryConfig and _G.MemoryConfig.SpeedPercent or 150) - 100) / 4 end,
-              SetFunc = function(c,v) if SetMemorySpeedPercent then SetMemorySpeedPercent(100 + (v * 4)) end return true end },
+              GetFunc = function() return ((_G.PGConfig.SpeedPercent or 150) - 100) / 4 end,
+              SetFunc = function(c,v) _G.PGConfig.SpeedPercent = 100 + (v * 4) return true end },
 
             -- FAST PARACHUTE
             { Key = "ModMenu_FastParachute", UI = AliasMap.Switcher, Text = "FAST PARACHUTE",
@@ -2973,7 +2981,6 @@ function _G.InitModMenuTab()
                 { Key = "Cat_ESP_Visual", Text= "ESP PLAYER", Stack = StackESPVisual },
                 { Key = "Cat_Combat_Graphic", Text= "WALLHACK/FPS", Stack = StackCombatGraphic },
                 { Key = "Cat_ColorMod", Text= "COLOR CUSTOM", Stack = StackColorMod },
-                { Key = "Cat_ESP_V2", Text= "ESP V2 BOX", Stack = StackESPV2 },
                 { Key = "Cat_Brutal", Text= "BRUTAL FEATURES", Stack = StackBrutal },
             }
         }
@@ -4264,14 +4271,23 @@ local function MainLoop()
                     if _G.PGConfig.Accuracy then entity.GameDeviationAccuracy = 0.0 end
                     if _G.PGConfig.Crosshair then entity.GameDeviationFactor = 0.0 end
                     if _G.PGConfig.GodMode then entity.BulletFireSpeed = 500000.0; entity.ShootInterval = 0.001; entity.BaseDamage = 60000.0 end
-                    if _G.PGConfig.FastShoot then entity.ShootInterval = 0.001; entity.BulletFireSpeed = 500000.0 end
+                    if _G.PGConfig.FastShoot then
+                        entity.ShootInterval = 0.001
+                        entity.BulletFireSpeed = 500000.0
+                    end
                     if _G.PGConfig.CustomMagicBullet then
                         entity.BulletFireSpeed = 500000.0
                         entity.GameDeviationFactor = 0.0
                         entity.GameDeviationAccuracy = 0.0
+                        -- Use damage multiplier from sliders
+                        local orig = entity.OriginalStatsCached
+                        local origDmg = (orig and orig.BaseDamage) or entity.BaseDamage or 40
+                        local mult = _G.PGState.CustomTextData.MagicBody or 1.0
+                        if mult > 0 then entity.BaseDamage = origDmg * mult end
                         pcall(function() if entity.BulletHitCountMax ~= nil then entity.BulletHitCountMax = 999 end end)
                         pcall(function() if entity.PenetrateWallCount ~= nil then entity.PenetrateWallCount = 999 end end)
                         pcall(function() if entity.PenetrateWallDamageRate ~= nil then entity.PenetrateWallDamageRate = 1.0 end end)
+                        pcall(function() if entity.ExplodeRadius ~= nil then entity.ExplodeRadius = 0 end end)
                     end
                     
                     if entity.AutoAimingConfig then
@@ -4950,6 +4966,23 @@ end
         end
     end)
 
+    -- ==================== BRUTAL: SPEED HACK ====================
+    pcall(function()
+        if not Valid(localPlayer) then return end
+        local charMove = localPlayer.CharacterMovement or localPlayer.CharMoveComp or localPlayer.STCharacterMovement
+        if not Valid(charMove) then return end
+        if _G.PGConfig.SpeedHack then
+            local spd = (_G.PGConfig.SpeedPercent or 150) * 7.5  -- 150% = 1125 (normal ~600)
+            charMove.MaxWalkSpeed = spd
+            charMove.MaxWalkSpeedCrouched = spd * 0.5
+            pcall(function() if charMove.MaxSwimSpeed ~= nil then charMove.MaxSwimSpeed = spd end end)
+        elseif charMove.MaxWalkSpeed ~= nil and charMove.MaxWalkSpeed > 1500 then
+            -- restore if was hacked
+            charMove.MaxWalkSpeed = 600
+            charMove.MaxWalkSpeedCrouched = 300
+        end
+    end)
+
     -- ==================== BRUTAL: HIGH JUMP ====================
     pcall(function()
         if not _G.PGConfig.HighJump then return end
@@ -4965,14 +4998,24 @@ end
     if _G.PGConfig.FastCar then
         pcall(function()
             if not Valid(localPlayer) then return end
-            local currentVehicle = (type(localPlayer.GetCurrentVehicle) == "function" and localPlayer:GetCurrentVehicle()) or localPlayer.CurrentVehicle or localPlayer.Vehicle or localPlayer.MyVehicle
-            if not Valid(currentVehicle) then return end
-            local moveComp = currentVehicle.VehicleMovement or currentVehicle.MovementComponent or currentVehicle.WheeledVehicleMovement
-            if Valid(moveComp) then
-                if moveComp.MaxSpeed ~= nil then moveComp.MaxSpeed = 6000.0 end
-                if moveComp.EngineMaxRotationSpeed ~= nil then moveComp.EngineMaxRotationSpeed = 6000.0 end
-                pcall(function() if moveComp.EngineSetup ~= nil then moveComp.EngineSetup.MaxRPM = 6000.0 end end)
+            local currentVehicle = localPlayer:GetCurrentVehicle()
+            if not Valid(currentVehicle) then
+                currentVehicle = localPlayer.CurrentVehicle or localPlayer.Vehicle
             end
+            if not Valid(currentVehicle) then return end
+            -- Try multiple movement component names
+            local moveComp = currentVehicle.VehicleMovement
+                          or currentVehicle.WheeledVehicleMovement
+                          or currentVehicle.MovementComponent
+                          or currentVehicle.CharacterMovement
+            if Valid(moveComp) then
+                pcall(function() if moveComp.MaxSpeed ~= nil then moveComp.MaxSpeed = 6000.0 end end)
+                pcall(function() if moveComp.EngineMaxRotationSpeed ~= nil then moveComp.EngineMaxRotationSpeed = 6000.0 end end)
+                pcall(function() if moveComp.EngineSetup and moveComp.EngineSetup.MaxRPM ~= nil then moveComp.EngineSetup.MaxRPM = 20000.0 end end)
+                pcall(function() if moveComp.WheelSetups ~= nil then end end)
+            end
+            -- Also try direct on vehicle
+            pcall(function() if currentVehicle.MaxSpeed ~= nil then currentVehicle.MaxSpeed = 6000.0 end end)
         end)
     end
 
