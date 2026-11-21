@@ -2718,6 +2718,10 @@ local ConfigFileName = "TEST_JOIN.txt"
 _G.LastConfigSaveStr = ""
 
 _G.SaveModSettings = function()
+    -- KEY_VALIDATED guard: SARE callers se protect karta hai.
+    -- LizardVip timers, AutoSaveLoop, menu callbacks — koi bhi
+    -- unlicensed state mein file nahi likhega.
+    if not _G.KEY_VALIDATED then return end
     pcall(function()
         local function serializeTable(tbl, indent)
             indent = indent or ""
