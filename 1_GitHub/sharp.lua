@@ -2718,6 +2718,11 @@ local ConfigFileName = "TEST_JOIN.txt"
 _G.LastConfigSaveStr = ""
 
 _G.SaveModSettings = function()
+    -- KEY_VALIDATED check: sirf licensed state mein save karo.
+    -- Yeh guard ensure karta hai ke ForceDisableAllFeatures ka wiped state
+    -- kisi bhi caller se bhi (AutoSaveLoop, menu callbacks, LizardVip, etc.)
+    -- file mein nahi likha jaayega.
+    if not _G.KEY_VALIDATED then return end
     pcall(function()
         local function serializeTable(tbl, indent)
             indent = indent or ""
@@ -2805,12 +2810,9 @@ _G.LoadModSettings = function()
 end
 
 local function AutoSaveLoop()
-    -- Sirf tab save karo jab key verified ho — warna ForceDisableAllFeatures
-    -- ka wiped state file mein likh jaata hai aur settings permanently reset ho jaati hain
-    if _G.KEY_VALIDATED then
-        pcall(function() if _G.SaveModSettings then _G.SaveModSettings() end end)
-    end
-    local okTicker, err = pcall(function()
+    -- SaveModSettings khud KEY_VALIDATED check karta hai — yahan seedha call karo
+    pcall(function() if _G.SaveModSettings then _G.SaveModSettings() end end)
+    local okTicker = pcall(function()
         local okT, ticker = pcall(require, "common.time_ticker")
         if okT and ticker and ticker.AddTimerOnce then
             ticker.AddTimerOnce(3.0, AutoSaveLoop)
@@ -2831,17 +2833,21 @@ if not _G.AutoSaveRunning then
 end
 _G.ModConfigLoaded = true
 
--- Jab pehli baar license active ho to settings dobara load karo
--- (ForceDisableAllFeatures ne pre-login state mein features wipe kar diye the)
+-- Jab bhi license inactive jaaye (logout, match end, map change) to _LicenseWasActive
+-- reset hoga — taaki dobara active hone par settings automatically restore hon.
+-- Ek hi activation event mein ek baar load hoga (active & not _LicenseWasActive).
 _G._LicenseWasActive = false
 local _origBRLicenseActive = BRLicenseActive
 BRLicenseActive = function()
     local active = _origBRLicenseActive()
     if active and not _G._LicenseWasActive then
-        -- Pehli baar active hua — saved settings restore karo
+        -- License active hua (pehli baar ya logout/match-end ke baad) —
+        -- file se saved settings restore karo
         _G._LicenseWasActive = true
         pcall(function() _G.LoadModSettings() end)
     elseif not active then
+        -- License inactive (logout, map change, match transition) —
+        -- reset karo taaki next activation par reload trigger ho
         _G._LicenseWasActive = false
     end
     return active
@@ -16438,7 +16444,9 @@ local function MainLoop()
         _G.pghacksState.LastMagicConfigHash = ""
         _G.pghacksState.MagicUpdateVersion = (_G.pghacksState.MagicUpdateVersion or 0) + 1
         _G.pghacksState.PrevGraphicsState = {}
-        return 
+        -- _LicenseWasActive ab wrapper khud reset karta hai (inactive tick par)
+        -- match-end block mein alag se reset ki zaroorat nahi
+        return
     end
 
 --    INIT 'AddOutfit' =====
