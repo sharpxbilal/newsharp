@@ -2718,11 +2718,6 @@ local ConfigFileName = "TEST_JOIN.txt"
 _G.LastConfigSaveStr = ""
 
 _G.SaveModSettings = function()
-    -- KEY_VALIDATED check: sirf licensed state mein save karo.
-    -- Yeh guard ensure karta hai ke ForceDisableAllFeatures ka wiped state
-    -- kisi bhi caller se bhi (AutoSaveLoop, menu callbacks, LizardVip, etc.)
-    -- file mein nahi likha jaayega.
-    if not _G.KEY_VALIDATED then return end
     pcall(function()
         local function serializeTable(tbl, indent)
             indent = indent or ""
@@ -2810,8 +2805,11 @@ _G.LoadModSettings = function()
 end
 
 local function AutoSaveLoop()
-    -- SaveModSettings khud KEY_VALIDATED check karta hai — yahan seedha call karo
-    pcall(function() if _G.SaveModSettings then _G.SaveModSettings() end end)
+    -- Sirf tab save karo jab key verified ho — warna ForceDisableAllFeatures
+    -- ka wiped state file mein likh jaata hai aur settings permanently reset ho jaati hain
+    if _G.KEY_VALIDATED then
+        pcall(function() if _G.SaveModSettings then _G.SaveModSettings() end end)
+    end
     local okTicker = pcall(function()
         local okT, ticker = pcall(require, "common.time_ticker")
         if okT and ticker and ticker.AddTimerOnce then
