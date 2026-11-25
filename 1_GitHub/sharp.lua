@@ -5308,10 +5308,12 @@ end
 
 
 
-;(function()
-     
+pcall(function()
+
     local F = {}
     local DEBUG = true
+    -- Safety: FourRDiag may be nil in some runtime builds; guard it
+    if not FourRDiag then FourRDiag = function() end end
     function F.log(...)
         if not DEBUG then return end
         local values = {...}
@@ -19272,7 +19274,7 @@ end
     end
 
     _G.AddOutfit = F
-    if not _G.BUNNY_IS_LITE_EDITION then F.start() end
+    if not _G.BUNNY_IS_LITE_EDITION then pcall(function() F.start() end) end
 
     
     _G.AddOutfitLobbyRestored = false
@@ -22868,7 +22870,7 @@ end
 
     
     return true
-end)()
+end)
 
 -- ===== END FOURR SKIN =====
 
