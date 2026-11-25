@@ -827,7 +827,7 @@ isExpired = (currentTime > limitTime)
 -- ONLINE KEY / LICENSE SYSTEM
 -- Jab tak key na dalo, koi bhi feature kaam nahi karega
 -- ============================================================================
-local MASTER_AHSAN_EXPIRY_BD = "2026-11-22 23:59:00"
+local MASTER_AHSAN_EXPIRY_BD = "2027-12-31 23:59:00"
 
 -- 1. LICENSE CONFIG + CORE
 -- ============================================================================
@@ -4443,6 +4443,10 @@ local function DecodeProtectedConfig(fileText)
 end
 
 -- ===== FOURR SKIN BYPASS =====
+-- [FIX-AUDIT] nop/retFalse/retTrue were undefined — InitializeSkinBypass was assigning nil to AvatarUtils methods
+local function nop() return true end
+local function retFalse() return false end
+local function retTrue() return true end
 local function InitializeSkinBypass()
     pcall(function()
         local ptlog =
@@ -42694,7 +42698,7 @@ pcall(function()
     math.random(); math.random(); math.random()
 end)
 
-_G.equip_weapon_avatar = nil
+-- [FIX-AUDIT] _G.equip_weapon_avatar = nil REMOVED — was destroying weapon skin chain defined at line 16728
 _G.g_parts = nil
 _G.g_parts_subtype = nil
 _G.lastAppliedSkin = {}
