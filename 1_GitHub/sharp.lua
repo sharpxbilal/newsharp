@@ -4296,8 +4296,7 @@ end
 
 
 -- ===== FOURR CRYPTO HELPERS (required by AddOutfit persist) =====
-local CONFIG_ENC_HEADER = "Telegram: @wypm43
-"
+local CONFIG_ENC_HEADER = "Telegram: @wypm43\n"
 local CONFIG_ENC_MARKER = "4R_CONFIG_ENC_V2:"
 local CONFIG_ENC_PEPPER = "4R-VIP-V8:BUNNY:@wypm43:CONFIG:2026"
 local CONFIG_ENC_COUNTER = 0
@@ -4412,8 +4411,7 @@ local function EncodeProtectedConfig(plainText)
     local cipherText = CryptConfigBytes(plainText, deviceKey .. "|" .. nonce)
     local tag = ConfigIntegrityTag(plainText, deviceKey, nonce)
     return
-        CONFIG_ENC_HEADER .. CONFIG_ENC_MARKER .. nonce .. ":" .. tag .. "
-" ..
+        CONFIG_ENC_HEADER .. CONFIG_ENC_MARKER .. nonce .. ":" .. tag .. "\n" ..
             BytesToChinese(cipherText)
 end
 
@@ -4425,8 +4423,7 @@ local function DecodeProtectedConfig(fileText)
     end
 
     local remainder = fileText:sub(#prefix + 1)
-    local newline = remainder:find("
-", 1, true)
+    local newline = remainder:find("\n", 1, true)
     if not newline then return nil, true end
     local metadata = remainder:sub(1, newline - 1)
     local nonce, expectedTag = metadata:match("^([0-9A-Fa-f]+):([0-9A-Fa-f]+)$")
