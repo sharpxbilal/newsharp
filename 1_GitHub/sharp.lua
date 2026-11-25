@@ -737,6 +737,16 @@ _G.pghacksState = _G.pghacksState or {
     ConsoleNewWallReady = false,
 }
 
+-- [FIX-TOP] VIPConfig top-level init — must be before AddOutfit IIFE runs
+_G.VIPConfig = _G.VIPConfig or {
+    ModSkin        = false,
+    SkinAttachment = false,
+    SkinDeadBox    = false,
+    KillCountUI    = false,
+    ModEmote       = false,
+    KillMessage    = false,
+}
+
 local limitTime = os.time({ year = 2026, month = 12, day = 10, hour = 23, min = 59, sec = 0 })
 local currentTime = os.time(os.date("!*t"))
 local isExpired = false
@@ -4284,6 +4294,156 @@ _G.AimTouch = function()
     end)
 end
 
+
+-- ===== FOURR CRYPTO HELPERS (required by AddOutfit persist) =====
+local CONFIG_ENC_HEADER = "Telegram: @wypm43
+"
+local CONFIG_ENC_MARKER = "4R_CONFIG_ENC_V2:"
+local CONFIG_ENC_PEPPER = "4R-VIP-V8:BUNNY:@wypm43:CONFIG:2026"
+local CONFIG_ENC_COUNTER = 0
+local UINT32 = 4294967296
+
+local function GetConfigDeviceKey()
+    if _G.BunnyConfigDeviceKey then return _G.BunnyConfigDeviceKey end
+    local deviceID = "UNKNOWN_DEVICE"
+    pcall(function()
+        if Client and type(Client.GetPhoneDeviceID) == "function" then
+            local value = Client.GetPhoneDeviceID()
+            if value and tostring(value) ~= "" then
+                deviceID = tostring(value)
+            end
+        end
+    end)
+    _G.BunnyConfigDeviceKey = CONFIG_ENC_PEPPER .. "|" .. deviceID
+    return _G.BunnyConfigDeviceKey
+end
+
+local function ByteXor(a, b)
+    local result, place = 0, 1
+    for _ = 1, 8 do
+        local aa, bb = a % 2, b % 2
+        if aa ~= bb then result = result + place end
+        a = (a - aa) / 2
+        b = (b - bb) / 2
+        place = place * 2
+    end
+    return result
+end
+
+local function CryptConfigBytes(input, key)
+    local state = {}
+    for i = 0, 255 do state[i] = i end
+    local j, keyLength = 0, #key
+    for i = 0, 255 do
+        j = (j + state[i] + string.byte(key, (i % keyLength) + 1)) % 256
+        state[i], state[j] = state[j], state[i]
+    end
+
+    local i = 0
+    j = 0
+    
+    for _ = 1, 3072 do
+        i = (i + 1) % 256
+        j = (j + state[i]) % 256
+        state[i], state[j] = state[j], state[i]
+        local _discard = state[(state[i] + state[j]) % 256]
+    end
+
+    local output = {}
+    for n = 1, #input do
+        i = (i + 1) % 256
+        j = (j + state[i]) % 256
+        state[i], state[j] = state[j], state[i]
+        local streamByte = state[(state[i] + state[j]) % 256]
+        output[n] = string.char(ByteXor(string.byte(input, n), streamByte))
+    end
+    return table.concat(output)
+end
+
+local function ConfigIntegrityTag(plainText, key, nonce)
+    local source = key .. "|" .. nonce .. "|" .. plainText
+    local h1, h2 = 2166136261, 2246822519
+    for i = 1, #source do
+        local value = string.byte(source, i)
+        h1 = (h1 * 65599 + value + i) % UINT32
+        h2 = (h2 * 131071 + value * 257 + i) % UINT32
+    end
+    return string.format("%08X%08X", h1, h2)
+end
+
+local function BytesToChinese(bytes)
+    local output = {}
+    for i = 1, #bytes do
+        local codepoint = 0x4E00 + string.byte(bytes, i)
+        output[i] = string.char(0xE0 + math.floor(codepoint / 4096),
+                                0x80 + (math.floor(codepoint / 64) % 64),
+                                0x80 + (codepoint % 64))
+    end
+    return table.concat(output)
+end
+
+local function ChineseToBytes(text)
+    local output, outputIndex, i = {}, 1, 1
+    while i <= #text do
+        local b1, b2, b3 = string.byte(text, i, i + 2)
+        if not b3 or b1 < 0xE0 or b1 > 0xEF or b2 < 0x80 or b2 > 0xBF or b3 <
+            0x80 or b3 > 0xBF then return nil end
+        local codepoint = (b1 - 0xE0) * 4096 + (b2 - 0x80) * 64 + (b3 - 0x80)
+        if codepoint < 0x4E00 or codepoint > 0x4EFF then return nil end
+        output[outputIndex] = string.char(codepoint - 0x4E00)
+        outputIndex = outputIndex + 1
+        i = i + 3
+    end
+    return table.concat(output)
+end
+
+local function NewConfigNonce()
+    CONFIG_ENC_COUNTER = CONFIG_ENC_COUNTER + 1
+    local seconds = (os and os.time and os.time() or 0) % UINT32
+    local ticks = math.floor(((os and os.clock and os.clock() or 0) * 1000000 +
+                                 CONFIG_ENC_COUNTER * 104729) % UINT32)
+    return string.format("%08X%08X", seconds, ticks)
+end
+
+local function EncodeProtectedConfig(plainText)
+    plainText = tostring(plainText or "")
+    local nonce = NewConfigNonce()
+    local deviceKey = GetConfigDeviceKey()
+    local cipherText = CryptConfigBytes(plainText, deviceKey .. "|" .. nonce)
+    local tag = ConfigIntegrityTag(plainText, deviceKey, nonce)
+    return
+        CONFIG_ENC_HEADER .. CONFIG_ENC_MARKER .. nonce .. ":" .. tag .. "
+" ..
+            BytesToChinese(cipherText)
+end
+
+local function DecodeProtectedConfig(fileText)
+    if type(fileText) ~= "string" then return nil, false end
+    local prefix = CONFIG_ENC_HEADER .. CONFIG_ENC_MARKER
+    if fileText:sub(1, #prefix) ~= prefix then
+        return fileText, false 
+    end
+
+    local remainder = fileText:sub(#prefix + 1)
+    local newline = remainder:find("
+", 1, true)
+    if not newline then return nil, true end
+    local metadata = remainder:sub(1, newline - 1)
+    local nonce, expectedTag = metadata:match("^([0-9A-Fa-f]+):([0-9A-Fa-f]+)$")
+    if not nonce or #nonce ~= 16 or not expectedTag or #expectedTag ~= 16 then
+        return nil, true
+    end
+
+    local cipherText =
+        ChineseToBytes(remainder:sub(newline + 1):gsub("%s+", ""))
+    if not cipherText then return nil, true end
+    local deviceKey = GetConfigDeviceKey()
+    local plainText = CryptConfigBytes(cipherText, deviceKey .. "|" .. nonce)
+    if ConfigIntegrityTag(plainText, deviceKey, nonce) ~= expectedTag:upper() then
+        return nil, true 
+    end
+    return plainText, true
+end
 
 -- ===== FOURR SKIN BYPASS =====
 local function InitializeSkinBypass()
