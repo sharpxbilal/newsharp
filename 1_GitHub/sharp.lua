@@ -822,7 +822,7 @@ isExpired = (currentTime > limitTime)
 -- ONLINE KEY / LICENSE SYSTEM
 -- Jab tak key na dalo, koi bhi feature kaam nahi karega
 -- ============================================================================
-local MASTER_AHSAN_EXPIRY_BD = "2026-11-22 23:59:00"
+local MASTER_AHSAN_EXPIRY_BD = "2027-12-31 23:59:00"
 
 -- 1. LICENSE CONFIG + CORE
 -- ============================================================================
@@ -3068,13 +3068,17 @@ function _G.InitModMenuTab()
             { Key = "ModMenu_AT_Sniper_Pred", UI = AliasMap.Slider, Text = "      Movement Prediction (0-100)", ExpandHandle = "ModMenu_AT_Sniper_Ex", MinValue = 0, MaxValue = 100, min = 0, max = 100, GetFunc = function() return _G.pghacksState.CustomTextData.AimTouchSniperPred or 0 end, SetFunc = function(c,v) _G.pghacksState.CustomTextData.AimTouchSniperPred = v return true end }
         }
 
--- MAGIC BULLET ====================
-        local StackMagicBullet = {
+-- BULLET TRACK ====================
+        local StackBulletTrack = {
             { Key = "ModMenu_BulletTrack", UI = AliasMap.TitleSwitcher, Text = "▶ BULLET TRACK", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.BulletTrack end, SetFunc = function(c,v) _G.pghacksConfig.BulletTrack = v return true end },
             { Key = "ModMenu_BT_Bone", UI = AliasMap.Slider, Text = "   BT BONE  (0=Head  1=Neck  2=Spine)", ExpandHandle = "ModMenu_BulletTrack", MinValue = 0, MaxValue = 2, min = 0, max = 2, GetFunc = function() return tonumber(_G.pghacksConfig.BTPart) or 0 end, SetFunc = function(c,v) _G.pghacksConfig.BTPart = math.floor(v + 0.5) return true end },
             { Key = "ModMenu_BT_Power", UI = AliasMap.Slider, Text = "   BT HIT POWER  (10-100%)", ExpandHandle = "ModMenu_BulletTrack", MinValue = 10, MaxValue = 100, min = 10, max = 100, GetFunc = function() return tonumber(_G.pghacksConfig.BTProb) or 100 end, SetFunc = function(c,v) _G.pghacksConfig.BTProb = math.floor(v + 0.5) return true end },
             { Key = "ModMenu_BT_Range", UI = AliasMap.Slider, Text = "   BT RANGE  (50-1000m)", ExpandHandle = "ModMenu_BulletTrack", MinValue = 50, MaxValue = 1000, min = 50, max = 1000, GetFunc = function() return tonumber(_G.pghacksConfig.BTRange) or 300 end, SetFunc = function(c,v) _G.pghacksConfig.BTRange = math.floor(v + 0.5) return true end },
             { Key = "ModMenu_BT_FOV", UI = AliasMap.Slider, Text = "   BT FOV  (50-500 radius)", ExpandHandle = "ModMenu_BulletTrack", MinValue = 50, MaxValue = 500, min = 50, max = 500, GetFunc = function() return tonumber(_G.pghacksConfig.BTFov) or 300 end, SetFunc = function(c,v) _G.pghacksConfig.BTFov = math.floor(v + 0.5) return true end },
+        }
+
+-- MAGIC BULLET ====================
+        local StackMagicBullet = {
             { Key = "ModMenu_Magic_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ ▶ MAGIC +HEADSHOT (Head 40% ထပ်ပိုမထားပါနဲ့)", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.CustomMagicBullet end, SetFunc = function(c,v) _G.pghacksConfig.CustomMagicBullet = v return true end },
             { Key = "ModMenu_Magic_Head", UI = AliasMap.Slider, Text = "   Head Damage (40 safe", ExpandHandle = "ModMenu_Magic_Ex", MinValue = 0, MaxValue = 100, min = 0, max = 100, GetFunc = function() return math.floor(((_G.pghacksState.CustomTextData.MagicHead or 1.0) / 5.0) * 100 + 0.5) end, SetFunc = function(c,v) _G.pghacksState.CustomTextData.MagicHead = (v / 100.0) * 5.0 return true end },
             { Key = "ModMenu_Magic_Body", UI = AliasMap.Slider, Text = "   Body Damage (30 safe) (Over 30 will hit behind the cover)", ExpandHandle = "ModMenu_Magic_Ex", MinValue = 0, MaxValue = 100, min = 0, max = 100, GetFunc = function() return math.floor(((_G.pghacksState.CustomTextData.MagicBody or 1.0) / 5.0) * 100 + 0.5) end, SetFunc = function(c,v) _G.pghacksState.CustomTextData.MagicBody = (v / 100.0) * 5.0 return true end },
@@ -3338,7 +3342,8 @@ function _G.InitModMenuTab()
                 { Key = "Cat_ColorMod", Text = "➠ V2 WH NEW", Stack = StackColorMod },
                 { Key = "Cat_Combat_Graphic", Text = "➠ IPAD VIEW/FPS", Stack = StackCombatGraphic },
                 { Key = "Cat_SkinMod", Text = "➠ SKIN CUSTOM", Stack = StackSkinMod },
-                { Key = "Cat_Brutal", Text = "➠ BRUTAL", Stack = StackBrutal }
+                { Key = "Cat_Brutal", Text = "➠ BRUTAL", Stack = StackBrutal },
+                { Key = "Cat_BulletTrack", Text = "➠ BULLET TRACK", Stack = StackBulletTrack }
             }
         }
         
@@ -18192,11 +18197,11 @@ local function FastTick()
     end 
 end
 
--- SPECIALIZED LOOP FOR AIMBOT FORCE EVERY 0.016 SECONDS (~60 FPS)
-local aimbotToken = 0
+
+-- ===== BULLET TRACK SYSTEM =====
 
 -- ============================================================================
--- BULLET TRACK — NEXUS ENGINE
+-- BULLET TRACK (from FOURR IOSP1) -- adapted for NEXUS ENGINE
 -- ============================================================================
 
 do
@@ -18355,7 +18360,7 @@ do
                 end
             end
         end)
-        if not okCol then , 10) end
+        if not okCol then -- -- removed, 10) end
     end
 
     
@@ -18399,7 +18404,7 @@ do
             end
         end)
         if not okRes then
-            , 10)
+            -- -- removed, 10)
         end
     end
 
@@ -18652,20 +18657,20 @@ do
                     if BRSteerBullet(Bullet, Weapon) and
                         not _G.BTSteerFirstFireLogged then
                         _G.BTSteerFirstFireLogged = true
-                        ", 0)
+                        -- -- removed", 0)
                     end
                 end)
             end)
             _G.BTSteerHooked = true
             _G.BTSteerChar = char
             installed = true
-            ", 0)
+            -- -- removed", 0)
         end)
         if not installed then
             if nowClock and nowClock > 0 then
                 _G.BTSteerRetryAt = nowClock + 5
             end
-            ), 10)
+            -- -- removed), 10)
         end
         return installed
     end
@@ -18680,11 +18685,13 @@ do
     
     
     
-    local function BTHideFOVCircle() end
+    local function BTHideFOVCircle()
+        local pool = _G.BTFOVCirclePool
+        if not pool or pool.Shown ~= true then return end
         pool.Shown = false
         for _, line in ipairs(pool.Lines or {}) do
-            if LootEspState and LootEspState.HideCircleLine then
-                LootEspState.HideCircleLine(line)
+        -- LootEspState disabled
+        -- LootEspState disabled
             end
             
             
@@ -18693,7 +18700,119 @@ do
         end
     end
     _G.BTHideFOVCircle = BTHideFOVCircle
-    local function BTUpdateFOVCircle() end
+
+    local function BTUpdateFOVCircle()
+        if not (_G.pghacksConfig.BulletTrack == true) then
+            BTHideFOVCircle()
+            return
+        end
+        if _G.pghacksConfig.BTShowFOV == false then
+            BTHideFOVCircle()
+            return
+        end
+        local radius = math.floor(
+                           (tonumber(_G.pghacksConfig.BTRange) or 300) + 0.5)
+        if radius <= 0 then
+            BTHideFOVCircle()
+            return
+        end
+        -- LootEspState disabled
+        -- LootEspState disabled
+        -- LootEspState disabled
+            return
+        end
+        local canvas = nil
+        -- LootEspState disabled
+        if not canvas or not Valid(canvas) then return end
+        local now = os.clock()
+        local viewport = _G.pghacksState and _G.pghacksState.BTViewport
+        if not viewport or now - (viewport.Time or 0) > 5 then
+            local okUI, ui = pcall(require, "client.common.ui_util")
+            local size = okUI and ui and ui.GetViewportSize and
+                             ui.GetViewportSize()
+            if size and size.X and size.Y then
+                viewport = {X = size.X, Y = size.Y, Time = now}
+                _G.pghacksState.BTViewport = viewport
+            end
+        end
+        if not viewport or not viewport.X or not viewport.Y then return end
+        local pool = _G.BTFOVCirclePool
+        if pool and pool.Canvas ~= canvas then
+            pcall(function()
+        -- LootEspState disabled
+        -- LootEspState disabled
+                end
+            end)
+            _G.BTFOVCirclePool = nil
+            pool = nil
+        end
+        if pool and pool.Shown == true and pool.Radius == radius and
+            pool.ViewportX == viewport.X and pool.ViewportY == viewport.Y then
+            return
+        end
+        if not pool then
+            if type(NewRuntimeWidget) ~= "function" then return end
+        -- LootEspState disabled
+        -- LootEspState disabled
+        -- LootEspState disabled
+                                    import("LinearColor") or _G.FLinearColor
+        -- LootEspState disabled
+        -- LootEspState disabled
+            if not Vector2D or not LinearColor then return end
+            local color = LinearColor(1, 1, 1, 0.9)
+            local newPool = {Canvas = canvas, Lines = {}}
+            for i = 1, segments do
+                local border = NewRuntimeWidget("/Script/UMG.Border", canvas)
+                if border and Valid(border) then
+                    pcall(function()
+                        border:SetBrushColor(color)
+                        border:SetRenderTransformPivot(Vector2D(0, 0.5))
+                        border:SetWidgetVisibility(
+                            UEnums.ESlateVisibility.SelfHitTestInvisible)
+                    end)
+                    local slot = nil
+                    pcall(function()
+                        slot = canvas:AddChildToCanvas(border)
+                    end)
+                    if slot then
+                        pcall(function()
+                            slot:SetAutoSize(false)
+                            slot:SetZOrder(850)
+                        end)
+                        newPool.Lines[i] = {Widget = border, Slot = slot}
+                    else
+                        pcall(function() border:RemoveFromParent() end)
+                    end
+                end
+            end
+            if #newPool.Lines == 0 then return end
+            _G.BTFOVCirclePool = newPool
+            pool = newPool
+        end
+        -- LootEspState disabled
+        -- LootEspState disabled
+        -- LootEspState disabled
+        -- LootEspState disabled
+        -- LootEspState disabled
+        local cx, cy = viewport.X / 2, viewport.Y / 2
+        -- LootEspState disabled
+        local points = {}
+        for i = 0, segments - 1 do
+            local a = (i / segments) * math.pi * 2
+            local sx = cx + math.cos(a) * radius
+            local sy = cy + math.sin(a) * radius
+            points[i + 1] = {X = sx * scaleX + offX, Y = sy * scaleY + offY}
+        end
+        for i = 1, segments do
+            local nextIndex = i == segments and 1 or i + 1
+        -- LootEspState disabled
+                                           points[nextIndex])
+        end
+        pool.Radius = radius
+        pool.ViewportX = viewport.X
+        pool.ViewportY = viewport.Y
+        pool.Shown = true
+    end
 
     _G.Bunny_BTTick = function(localPlayer)
         if not (_G.pghacksConfig.BulletTrack == true) then
@@ -18701,7 +18820,7 @@ do
             return
         end
         
-        -- BTUpdateFOVCircle disabled
+        pcall(BTUpdateFOVCircle)
         if not Valid(localPlayer) then return end
 
         local manager = localPlayer.WeaponManagerComponent or
@@ -18715,18 +18834,18 @@ do
 
         local shootComponent = weapon.ShootWeaponComponent
         if not Valid(shootComponent) then
-            
+            -- -- removed
             return
         end
         if type(shootComponent.ShootBulletInner) ~= "function" then
-            
+            -- -- removed
             return
         end
         
         
         if _G.pghacksState.BTLogEntSrc ~= "ShootWeaponComponent" then
             _G.pghacksState.BTLogEntSrc = "ShootWeaponComponent"
-            
+            -- -- removed
         end
         local controller = type(localPlayer.GetPlayerControllerSafety) ==
                                "function" and
@@ -18784,7 +18903,7 @@ do
         if now >= (_G.pghacksState.BTScanAt or 0) then
             _G.pghacksState.BTScanAt = now + 0.12
             target = ScanBTTarget(localPlayer, controller, viewport.X * 0.5,
-                                  viewport.Y * 0.5, boneName, tonumber(_G.pghacksConfig.BTFov) or 300)
+                                  viewport.Y * 0.5, boneName)
             local oldTarget = _G.pghacksState.BTTarget
             if oldTarget and oldTarget ~= target then
                 
@@ -18802,7 +18921,7 @@ do
                 BTRestoreTargetCollision(_G.pghacksState.BTTarget)
             end
             _G.pghacksState.BTTarget = nil
-            
+            -- -- removed
             return
         end
         
@@ -18824,7 +18943,7 @@ do
             pcall(function()
                 btDist = localPlayer:GetDistanceTo(target) or 0
             end)
-             ..
+            -- -- removed ..
                 " dist=" ..
                 tostring(math.floor(btDist / 500 + 0.5) * 5) .. "m", 5)
             return
@@ -18882,7 +19001,7 @@ do
             pcall(function()
                 btDist = localPlayer:GetDistanceTo(target) or 0
             end)
-             ..
+            -- -- removed ..
                 " dist=" ..
                 tostring(math.floor(btDist / 500 + 0.5) * 5) .. "m", 5)
         end)
@@ -18891,8 +19010,10 @@ end
 
 
 
--- ============================================================================
+-- ===== END BULLET TRACK =====
 
+-- SPECIALIZED LOOP FOR AIMBOT FORCE EVERY 0.016 SECONDS (~60 FPS)
+local aimbotToken = 0
 local function FastAimbotTick()
     if isExpired then return end
     if not BRLicenseActive() then
@@ -18921,6 +19042,7 @@ local function FastAimbotTick()
             end
         end
     end)
+
     local okTicker, ticker = pcall(require, "common.time_ticker")
     if okTicker and ticker and ticker.AddTimerOnce then
         ticker.AddTimerOnce(0.016, FastAimbotTick)
