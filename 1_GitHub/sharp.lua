@@ -567,11 +567,6 @@ local GLOBAL_BONE_LIST = {
 -- pghacks CORE + FULL FEATURES VIP CONFIGURATION 
 _G.pghacksConfig = _G.pghacksConfig or { 
     CustomMagicBullet = false,
-    BulletTrack = false,
-    BTPart = 0,
-    BTProb = 100,
-    BTRange = 300,
-    BTFov = 300,
     FastParachute = false,     -- 🪂 Fast Parachute
     HighJump = false,          -- 🕊️ FLY (Hover Mode)
     FastCar = false,           -- 🚗 Car Speed
@@ -822,7 +817,7 @@ isExpired = (currentTime > limitTime)
 -- ONLINE KEY / LICENSE SYSTEM
 -- Jab tak key na dalo, koi bhi feature kaam nahi karega
 -- ============================================================================
-local MASTER_AHSAN_EXPIRY_BD = "2027-12-31 23:59:00"
+local MASTER_AHSAN_EXPIRY_BD = "2026-11-22 23:59:00"
 
 -- 1. LICENSE CONFIG + CORE
 -- ============================================================================
@@ -3068,14 +3063,6 @@ function _G.InitModMenuTab()
             { Key = "ModMenu_AT_Sniper_Pred", UI = AliasMap.Slider, Text = "      Movement Prediction (0-100)", ExpandHandle = "ModMenu_AT_Sniper_Ex", MinValue = 0, MaxValue = 100, min = 0, max = 100, GetFunc = function() return _G.pghacksState.CustomTextData.AimTouchSniperPred or 0 end, SetFunc = function(c,v) _G.pghacksState.CustomTextData.AimTouchSniperPred = v return true end }
         }
 
--- BULLET TRACK ====================
-        local StackBulletTrack = {
-            { Key = "ModMenu_BulletTrack", UI = AliasMap.TitleSwitcher, Text = "▶ BULLET TRACK", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.BulletTrack end, SetFunc = function(c,v) _G.pghacksConfig.BulletTrack = v return true end },
-            { Key = "ModMenu_BT_Bone", UI = AliasMap.Slider, Text = "   BT BONE  (0=Head  1=Neck  2=Spine)", ExpandHandle = "ModMenu_BulletTrack", MinValue = 0, MaxValue = 2, min = 0, max = 2, GetFunc = function() return tonumber(_G.pghacksConfig.BTPart) or 0 end, SetFunc = function(c,v) _G.pghacksConfig.BTPart = math.floor(v + 0.5) return true end },
-            { Key = "ModMenu_BT_Power", UI = AliasMap.Slider, Text = "   BT HIT POWER  (10-100%)", ExpandHandle = "ModMenu_BulletTrack", MinValue = 10, MaxValue = 100, min = 10, max = 100, GetFunc = function() return tonumber(_G.pghacksConfig.BTProb) or 100 end, SetFunc = function(c,v) _G.pghacksConfig.BTProb = math.floor(v + 0.5) return true end },
-            { Key = "ModMenu_BT_Range", UI = AliasMap.Slider, Text = "   BT RANGE  (50-1000m)", ExpandHandle = "ModMenu_BulletTrack", MinValue = 50, MaxValue = 1000, min = 50, max = 1000, GetFunc = function() return tonumber(_G.pghacksConfig.BTRange) or 300 end, SetFunc = function(c,v) _G.pghacksConfig.BTRange = math.floor(v + 0.5) return true end },
-            { Key = "ModMenu_BT_FOV", UI = AliasMap.Slider, Text = "   BT FOV  (50-500 radius)", ExpandHandle = "ModMenu_BulletTrack", MinValue = 50, MaxValue = 500, min = 50, max = 500, GetFunc = function() return tonumber(_G.pghacksConfig.BTFov) or 300 end, SetFunc = function(c,v) _G.pghacksConfig.BTFov = math.floor(v + 0.5) return true end },
-        }
 -- MAGIC BULLET ====================
         local StackMagicBullet = {
             { Key = "ModMenu_Magic_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ ▶ MAGIC +HEADSHOT (Head 40% ထပ်ပိုမထားပါနဲ့)", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.CustomMagicBullet end, SetFunc = function(c,v) _G.pghacksConfig.CustomMagicBullet = v return true end },
@@ -3341,8 +3328,7 @@ function _G.InitModMenuTab()
                 { Key = "Cat_ColorMod", Text = "➠ V2 WH NEW", Stack = StackColorMod },
                 { Key = "Cat_Combat_Graphic", Text = "➠ IPAD VIEW/FPS", Stack = StackCombatGraphic },
                 { Key = "Cat_SkinMod", Text = "➠ SKIN CUSTOM", Stack = StackSkinMod },
-                { Key = "Cat_Brutal", Text = "➠ BRUTAL", Stack = StackBrutal },
-                { Key = "Cat_BulletTrack", Text = "➠ BULLET TRACK", Stack = StackBulletTrack }
+                { Key = "Cat_Brutal", Text = "➠ BRUTAL", Stack = StackBrutal }
             }
         }
         
@@ -18196,232 +18182,6 @@ local function FastTick()
     end 
 end
 
--- ===== BULLET TRACK SYSTEM =====
-
--- ============================================================================
--- BULLET TRACK (from FOURR IOSP1) -- adapted for NEXUS ENGINE
--- ============================================================================
-
-do
-    local BT_BONES = {[0] = "head", [1] = "neck_01", [2] = "spine_03"}
-    local BT_Vector2DClass, BT_GameplayStatics, BT_MathLibrary = nil, nil, nil
-
-    local BTCollisionSaved = {}
-
-    local function BTEnemyHasActiveBullets(enemy)
-        if not enemy then return false end
-        for _, entry in pairs(BTCollisionSaved) do
-            if entry.target == enemy then return true end
-        end
-        return false
-    end
-
-    local function BRSteerBullet(Bullet, Weapon)
-        if not Bullet or not slua.isValid(Bullet) then return false end
-        local target = _G.pghacksState and _G.pghacksState.BTTarget
-        if not target or not slua.isValid(target) then return false end
-        local prob = tonumber(_G.pghacksConfig.BTProb) or 100
-        if math.random(1, 100) > prob then return false end
-        local boneName = BT_BONES[tonumber(_G.pghacksConfig.BTPart) or 0] or "head"
-        local ok, bonePos = pcall(function()
-            return target:GetBoneLocation(boneName, 0)
-        end)
-        if not ok or not bonePos then return false end
-        local okB, bulletPos = pcall(function() return Bullet:K2_GetActorLocation() end)
-        if not okB or not bulletPos then return false end
-        local dist = math.sqrt(
-            (bonePos.X - bulletPos.X)^2 +
-            (bonePos.Y - bulletPos.Y)^2 +
-            (bonePos.Z - bulletPos.Z)^2
-        )
-        local maxRange = (tonumber(_G.pghacksConfig.BTRange) or 300) * 100
-        if dist > maxRange then return false end
-        if not BT_MathLibrary then
-            local ok2, m = pcall(require, "Kismet.KismetMathLibrary")
-            if ok2 and m then BT_MathLibrary = m end
-        end
-        if not BT_MathLibrary then return false end
-        local ok3, rot = pcall(function()
-            return BT_MathLibrary.FindLookAtRotation(bulletPos, bonePos)
-        end)
-        if not ok3 or not rot then return false end
-        pcall(function() Bullet:K2_SetActorRotation(rot, false) end)
-        local vel = {X=0, Y=0, Z=0}
-        local spd = 100000
-        local dx = bonePos.X - bulletPos.X
-        local dy = bonePos.Y - bulletPos.Y
-        local dz = bonePos.Z - bulletPos.Z
-        local len = math.sqrt(dx*dx + dy*dy + dz*dz)
-        if len > 0 then
-            vel.X = dx/len * spd
-            vel.Y = dy/len * spd
-            vel.Z = dz/len * spd
-        end
-        pcall(function()
-            local mc = Bullet:GetComponentByClass(
-                import("ProjectileMovementComponent"))
-            if mc and slua.isValid(mc) then
-                mc.Velocity = vel
-            end
-        end)
-        return true
-    end
-
-    local function BTTickSteerActive()
-        local pool = _G.BTScanPool
-        if not pool then return end
-        local target = _G.pghacksState and _G.pghacksState.BTTarget
-        local fov = tonumber(_G.pghacksConfig.BTFov) or 300
-        local now = os.clock()
-        for key, entry in pairs(pool) do
-            local b = entry.bullet
-            if not b or not slua.isValid(b) then
-                pool[key] = nil
-            else
-                local age = now - (entry.born or now)
-                if age > 3 then
-                    pool[key] = nil
-                else
-                    pcall(BRSteerBullet, b, nil)
-                end
-            end
-        end
-    end
-
-    local function InitializeBulletTrackHook()
-        local ok, ShootComp = pcall(require,
-            "GameLua.GameCore.Component.Weapon.ShootWeaponComponent")
-        if not ok or not ShootComp then return false end
-        local orig = ShootComp.ShootBulletInner
-        if type(orig) ~= "function" then return false end
-        if _G.pghacksState.BTLogEntSrc == "ShootWeaponComponent" then
-            return true
-        end
-        ShootComp.ShootBulletInner = function(self, Bullet, Weapon, ...)
-            local r = orig(self, Bullet, Weapon, ...)
-            if _G.pghacksConfig.BulletTrack and Bullet and slua.isValid(Bullet) then
-                local key = tostring(Bullet)
-                if not _G.BTScanPool then _G.BTScanPool = {} end
-                _G.BTScanPool[key] = {bullet = Bullet, born = os.clock()}
-                pcall(BRSteerBullet, Bullet, Weapon)
-            end
-            return r
-        end
-        _G.pghacksState.BTLogEntSrc = "ShootWeaponComponent"
-        return true
-    end
-
-    _G.BTTickSteerActive = BTTickSteerActive
-
-    local function BTHideFOVCircle()
-        local pool = _G.BTFOVCirclePool
-        if not pool or pool.Shown ~= true then return end
-        pool.Shown = false
-        for _, line in ipairs(pool.Lines or {}) do
-            line.Shown = false
-        end
-    end
-    _G.BTHideFOVCircle = BTHideFOVCircle
-
-    _G.Bunny_BTTick = function(localPlayer)
-        if not (_G.pghacksConfig.BulletTrack == true) then
-            _G.pghacksState.BTTarget = nil
-            return
-        end
-        if not localPlayer or not slua.isValid(localPlayer) then return end
-        local now = os.clock()
-
-        local shootComponent = nil
-        pcall(function()
-            shootComponent = localPlayer:GetComponentByClass(
-                import("ShootWeaponComponent"))
-        end)
-        if not shootComponent or not slua.isValid(shootComponent) then return end
-        if type(shootComponent.ShootBulletInner) ~= "function" then return end
-
-        if _G.pghacksState.BTLogEntSrc ~= "ShootWeaponComponent" then
-            local steerOn = InitializeBulletTrackHook()
-            if not steerOn then return end
-        end
-
-        local steerOn = InitializeBulletTrackHook()
-
-        if steerOn then
-            pcall(function() BTTickSteerActive() end)
-            pcall(function()
-                if _G.BTScanPool and (now % 1.0) < 0.12 then
-                    for k, v in pairs(_G.BTScanPool) do
-                        if not v.bullet or not slua.isValid(v.bullet) then
-                            _G.BTScanPool[k] = nil
-                        end
-                    end
-                end
-            end)
-        end
-
-        if now >= (_G.pghacksState.BTScanAt or 0) then
-            _G.pghacksState.BTScanAt = now + 0.5
-            local oldTarget = _G.pghacksState.BTTarget
-            local target = nil
-            pcall(function()
-                local okGS, GS = pcall(require, "Kismet.GameplayStatics")
-                if not okGS or not GS then return end
-                local players = GS.GetAllActorsOfClass(
-                    localPlayer, import("BRPlayerCharacterBase"))
-                if not players then return end
-                local bestDist = math.huge
-                local vp = _G.pghacksState.BTViewport
-                local cx = vp and vp.X and vp.X/2 or 960
-                local cy = vp and vp.Y and vp.Y/2 or 540
-                local fov = tonumber(_G.pghacksConfig.BTFov) or 300
-                for i = 0, players:Length() - 1 do
-                    local p = players:Get(i)
-                    if p and slua.isValid(p) and p ~= localPlayer then
-                        local ok2, pos = pcall(function()
-                            return p:GetBoneLocation("head", 0)
-                        end)
-                        if ok2 and pos then
-                            local okP, GS2 = pcall(require, "Kismet.GameplayStatics")
-                            local okPC, pc = pcall(function()
-                                return GS2.GetPlayerController(p, 0)
-                            end)
-                            if okPC and pc then
-                                local ok3, sx, sy = pcall(function()
-                                    return pc:ProjectWorldLocationToScreen(pos)
-                                end)
-                                if ok3 and sx then
-                                    local ddx = sx - cx
-                                    local ddy = sy - cy
-                                    local d = math.sqrt(ddx*ddx + ddy*ddy)
-                                    if d < fov and d < bestDist then
-                                        bestDist = d
-                                        target = p
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-            _G.pghacksState.BTTarget = target
-        end
-
-        if steerOn then
-            pcall(function()
-                BTTickSteerActive()
-            end)
-        end
-
-        pcall(function()
-            if not _G.pghacksState.BTViewport then
-                _G.pghacksState.BTViewport = {}
-            end
-        end)
-    end
-end
-
--- ===== END BULLET TRACK =====
-
 -- SPECIALIZED LOOP FOR AIMBOT FORCE EVERY 0.016 SECONDS (~60 FPS)
 local aimbotToken = 0
 local function FastAimbotTick()
@@ -18440,16 +18200,6 @@ local function FastAimbotTick()
     pcall(function()
         if _G.pghacksConfig.AimTouchEnable then
             _G.AimTouch()
-        end
-    end)
-
-    pcall(function()
-        if _G.pghacksConfig.BulletTrack and _G.Bunny_BTTick then
-            local okGD, GameplayData = pcall(require, "GameLua.GameCore.Data.GameplayData")
-            if okGD and GameplayData then
-                local player = GameplayData.GetPlayerCharacter and GameplayData.GetPlayerCharacter()
-                if player and slua.isValid(player) then _G.Bunny_BTTick(player) end
-            end
         end
     end)
 
