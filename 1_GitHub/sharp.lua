@@ -18360,7 +18360,7 @@ do
                 end
             end
         end)
-        if not okCol then -- -- removed, 10) end
+        if not okCol then end -- (FourRDiag removed)
     end
 
     
@@ -18692,10 +18692,10 @@ do
         for _, line in ipairs(pool.Lines or {}) do
         -- LootEspState disabled
         -- LootEspState disabled
-            end
-            
-            
-            
+            -- (orphan end removed)
+
+
+
             line.Shown = false
         end
     end
@@ -18719,8 +18719,7 @@ do
         -- LootEspState disabled
         -- LootEspState disabled
         -- LootEspState disabled
-            return
-        end
+        -- (orphan return+end removed)
         local canvas = nil
         -- LootEspState disabled
         if not canvas or not Valid(canvas) then return end
@@ -18741,7 +18740,7 @@ do
             pcall(function()
         -- LootEspState disabled
         -- LootEspState disabled
-                end
+                -- (orphan end removed)
             end)
             _G.BTFOVCirclePool = nil
             pool = nil
