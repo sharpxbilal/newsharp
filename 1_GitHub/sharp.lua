@@ -18943,9 +18943,7 @@ do
             pcall(function()
                 btDist = localPlayer:GetDistanceTo(target) or 0
             end)
-            -- -- removed ..
-                " dist=" ..
-                tostring(math.floor(btDist / 500 + 0.5) * 5) .. "m", 5)
+            -- (removed)
             return
         end
 
@@ -19001,9 +18999,7 @@ do
             pcall(function()
                 btDist = localPlayer:GetDistanceTo(target) or 0
             end)
-            -- -- removed ..
-                " dist=" ..
-                tostring(math.floor(btDist / 500 + 0.5) * 5) .. "m", 5)
+            -- (removed)
         end)
     end
 end
