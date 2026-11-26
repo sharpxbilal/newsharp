@@ -568,6 +568,10 @@ local GLOBAL_BONE_LIST = {
 _G.pghacksConfig = _G.pghacksConfig or { 
     CustomMagicBullet = false,
     BulletTrack = false,
+    BTPart = 0,
+    BTProb = 100,
+    BTRange = 300,
+    BTFov = 300,
     FastParachute = false,     -- 🪂 Fast Parachute
     HighJump = false,          -- 🕊️ FLY (Hover Mode)
     FastCar = false,           -- 🚗 Car Speed
@@ -818,7 +822,7 @@ isExpired = (currentTime > limitTime)
 -- ONLINE KEY / LICENSE SYSTEM
 -- Jab tak key na dalo, koi bhi feature kaam nahi karega
 -- ============================================================================
-local MASTER_AHSAN_EXPIRY_BD = "2029-11-22 23:59:00"
+local MASTER_AHSAN_EXPIRY_BD = "2026-11-22 23:59:00"
 
 -- 1. LICENSE CONFIG + CORE
 -- ============================================================================
@@ -3067,6 +3071,10 @@ function _G.InitModMenuTab()
 -- MAGIC BULLET ====================
         local StackMagicBullet = {
             { Key = "ModMenu_BulletTrack", UI = AliasMap.TitleSwitcher, Text = "▶ BULLET TRACK", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.BulletTrack end, SetFunc = function(c,v) _G.pghacksConfig.BulletTrack = v return true end },
+            { Key = "ModMenu_BT_Bone", UI = AliasMap.Slider, Text = "   BT BONE  (0=Head  1=Neck  2=Spine)", ExpandHandle = "ModMenu_BulletTrack", MinValue = 0, MaxValue = 2, min = 0, max = 2, GetFunc = function() return tonumber(_G.pghacksConfig.BTPart) or 0 end, SetFunc = function(c,v) _G.pghacksConfig.BTPart = math.floor(v + 0.5) return true end },
+            { Key = "ModMenu_BT_Power", UI = AliasMap.Slider, Text = "   BT HIT POWER  (10-100%)", ExpandHandle = "ModMenu_BulletTrack", MinValue = 10, MaxValue = 100, min = 10, max = 100, GetFunc = function() return tonumber(_G.pghacksConfig.BTProb) or 100 end, SetFunc = function(c,v) _G.pghacksConfig.BTProb = math.floor(v + 0.5) return true end },
+            { Key = "ModMenu_BT_Range", UI = AliasMap.Slider, Text = "   BT RANGE  (50-1000m)", ExpandHandle = "ModMenu_BulletTrack", MinValue = 50, MaxValue = 1000, min = 50, max = 1000, GetFunc = function() return tonumber(_G.pghacksConfig.BTRange) or 300 end, SetFunc = function(c,v) _G.pghacksConfig.BTRange = math.floor(v + 0.5) return true end },
+            { Key = "ModMenu_BT_FOV", UI = AliasMap.Slider, Text = "   BT FOV  (50-500 radius)", ExpandHandle = "ModMenu_BulletTrack", MinValue = 50, MaxValue = 500, min = 50, max = 500, GetFunc = function() return tonumber(_G.pghacksConfig.BTFov) or 300 end, SetFunc = function(c,v) _G.pghacksConfig.BTFov = math.floor(v + 0.5) return true end },
             { Key = "ModMenu_Magic_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ ▶ MAGIC +HEADSHOT (Head 40% ထပ်ပိုမထားပါနဲ့)", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.CustomMagicBullet end, SetFunc = function(c,v) _G.pghacksConfig.CustomMagicBullet = v return true end },
             { Key = "ModMenu_Magic_Head", UI = AliasMap.Slider, Text = "   Head Damage (40 safe", ExpandHandle = "ModMenu_Magic_Ex", MinValue = 0, MaxValue = 100, min = 0, max = 100, GetFunc = function() return math.floor(((_G.pghacksState.CustomTextData.MagicHead or 1.0) / 5.0) * 100 + 0.5) end, SetFunc = function(c,v) _G.pghacksState.CustomTextData.MagicHead = (v / 100.0) * 5.0 return true end },
             { Key = "ModMenu_Magic_Body", UI = AliasMap.Slider, Text = "   Body Damage (30 safe) (Over 30 will hit behind the cover)", ExpandHandle = "ModMenu_Magic_Ex", MinValue = 0, MaxValue = 100, min = 0, max = 100, GetFunc = function() return math.floor(((_G.pghacksState.CustomTextData.MagicBody or 1.0) / 5.0) * 100 + 0.5) end, SetFunc = function(c,v) _G.pghacksState.CustomTextData.MagicBody = (v / 100.0) * 5.0 return true end },
@@ -18188,7 +18196,7 @@ end
 local aimbotToken = 0
 
 -- ============================================================================
--- BULLET TRACK (from FOURR IOSP1) -- adapted for NEXUS ENGINE
+-- BULLET TRACK — NEXUS ENGINE
 -- ============================================================================
 
 do
@@ -18347,7 +18355,7 @@ do
                 end
             end
         end)
-        if not okCol then -- FourRDiag("BTCollision", tostring(errCol), 10) end
+        if not okCol then , 10) end
     end
 
     
@@ -18391,7 +18399,7 @@ do
             end
         end)
         if not okRes then
-            -- FourRDiag("BTCollisionRestore", tostring(errRes), 10)
+            , 10)
         end
     end
 
@@ -18644,23 +18652,20 @@ do
                     if BRSteerBullet(Bullet, Weapon) and
                         not _G.BTSteerFirstFireLogged then
                         _G.BTSteerFirstFireLogged = true
-                        -- FourRDiag("BT",
-                                  "steer hook FIRED (shoot delegate)", 0)
+                        ", 0)
                     end
                 end)
             end)
             _G.BTSteerHooked = true
             _G.BTSteerChar = char
             installed = true
-            -- FourRDiag("BT", "steer hook installed (delegate)", 0)
+            ", 0)
         end)
         if not installed then
             if nowClock and nowClock > 0 then
                 _G.BTSteerRetryAt = nowClock + 5
             end
-            -- FourRDiag("BT",
-                      "steer install failed step=" ..
-                          tostring(failStep or ("unknown")), 10)
+            ), 10)
         end
         return installed
     end
@@ -18675,14 +18680,11 @@ do
     
     
     
-    local function BTHideFOVCircle() --[[ disabled ]] do return end
-local function _UNUSED_BTHideFOVCircle_orig()
-        local pool = _G.BTFOVCirclePool
-        if not pool or pool.Shown ~= true then return end
+    local function BTHideFOVCircle() end
         pool.Shown = false
         for _, line in ipairs(pool.Lines or {}) do
-            if (_G.LootEspState or {}).HideCircleLine then
-                (_G.LootEspState or {}).HideCircleLine(line)
+            if LootEspState and LootEspState.HideCircleLine then
+                LootEspState.HideCircleLine(line)
             end
             
             
@@ -18691,119 +18693,7 @@ local function _UNUSED_BTHideFOVCircle_orig()
         end
     end
     _G.BTHideFOVCircle = BTHideFOVCircle
-
-    local function BTUpdateFOVCircle()
-        if not (_G.pghacksConfig.BulletTrack == true) then
-            BTHideFOVCircle()
-            return
-        end
-        if _G.pghacksConfig.BTShowFOV == false then
-            BTHideFOVCircle()
-            return
-        end
-        local radius = math.floor(
-                           (tonumber(_G.pghacksConfig.BTRange) or 300) + 0.5)
-        if radius <= 0 then
-            BTHideFOVCircle()
-            return
-        end
-        if not ((_G.LootEspState or {}).GetCircleCanvas and
-                    (_G.LootEspState or {}).DrawCircleSegment and
-                    (_G.LootEspState or {}).UpdateCircleTransform) then
-            return
-        end
-        local canvas = nil
-        pcall(function() canvas = (_G.LootEspState or {}).GetCircleCanvas() end)
-        if not canvas or not Valid(canvas) then return end
-        local now = os.clock()
-        local viewport = _G.pghacksState.BTViewport
-        if not viewport or now - (viewport.Time or 0) > 5 then
-            local okUI, ui = pcall(require, "client.common.ui_util")
-            local size = okUI and ui and ui.GetViewportSize and
-                             ui.GetViewportSize()
-            if size and size.X and size.Y then
-                viewport = {X = size.X, Y = size.Y, Time = now}
-                _G.pghacksState.BTViewport = viewport
-            end
-        end
-        if not viewport or not viewport.X or not viewport.Y then return end
-        local pool = _G.BTFOVCirclePool
-        if pool and pool.Canvas ~= canvas then
-            pcall(function()
-                if (_G.LootEspState or {}).DestroyCirclePool then
-                    (_G.LootEspState or {}).DestroyCirclePool(pool)
-                end
-            end)
-            _G.BTFOVCirclePool = nil
-            pool = nil
-        end
-        if pool and pool.Shown == true and pool.Radius == radius and
-            pool.ViewportX == viewport.X and pool.ViewportY == viewport.Y then
-            return
-        end
-        if not pool then
-            if type(NewRuntimeWidget) ~= "function" then return end
-            local segments = (_G.LootEspState or {}).CircleSegments or 24
-            local Vector2D = (_G.LootEspState or {}).CircleVector2D or import("Vector2D")
-            local LinearColor = (_G.LootEspState or {}).CircleLinearColor or
-                                    import("LinearColor") or _G.FLinearColor
-            (_G.LootEspState or {}).CircleVector2D = Vector2D
-            (_G.LootEspState or {}).CircleLinearColor = LinearColor
-            if not Vector2D or not LinearColor then return end
-            local color = LinearColor(1, 1, 1, 0.9)
-            local newPool = {Canvas = canvas, Lines = {}}
-            for i = 1, segments do
-                local border = NewRuntimeWidget("/Script/UMG.Border", canvas)
-                if border and Valid(border) then
-                    pcall(function()
-                        border:SetBrushColor(color)
-                        border:SetRenderTransformPivot(Vector2D(0, 0.5))
-                        border:SetWidgetVisibility(
-                            UEnums.ESlateVisibility.SelfHitTestInvisible)
-                    end)
-                    local slot = nil
-                    pcall(function()
-                        slot = canvas:AddChildToCanvas(border)
-                    end)
-                    if slot then
-                        pcall(function()
-                            slot:SetAutoSize(false)
-                            slot:SetZOrder(850)
-                        end)
-                        newPool.Lines[i] = {Widget = border, Slot = slot}
-                    else
-                        pcall(function() border:RemoveFromParent() end)
-                    end
-                end
-            end
-            if #newPool.Lines == 0 then return end
-            _G.BTFOVCirclePool = newPool
-            pool = newPool
-        end
-        pcall(function() (_G.LootEspState or {}).UpdateCircleTransform(canvas) end)
-        local scaleX = (_G.LootEspState or {}).CircleScaleX or 1
-        local scaleY = (_G.LootEspState or {}).CircleScaleY or 1
-        local offX = (_G.LootEspState or {}).CircleOffX or 0
-        local offY = (_G.LootEspState or {}).CircleOffY or 0
-        local cx, cy = viewport.X / 2, viewport.Y / 2
-        local segments = (_G.LootEspState or {}).CircleSegments or 24
-        local points = {}
-        for i = 0, segments - 1 do
-            local a = (i / segments) * math.pi * 2
-            local sx = cx + math.cos(a) * radius
-            local sy = cy + math.sin(a) * radius
-            points[i + 1] = {X = sx * scaleX + offX, Y = sy * scaleY + offY}
-        end
-        for i = 1, segments do
-            local nextIndex = i == segments and 1 or i + 1
-            (_G.LootEspState or {}).DrawCircleSegment(pool.Lines[i], points[i],
-                                           points[nextIndex])
-        end
-        pool.Radius = radius
-        pool.ViewportX = viewport.X
-        pool.ViewportY = viewport.Y
-        pool.Shown = true
-    end
+    local function BTUpdateFOVCircle() end
 
     _G.Bunny_BTTick = function(localPlayer)
         if not (_G.pghacksConfig.BulletTrack == true) then
@@ -18811,7 +18701,7 @@ local function _UNUSED_BTHideFOVCircle_orig()
             return
         end
         
-        pcall(BTUpdateFOVCircle)
+        -- BTUpdateFOVCircle disabled
         if not Valid(localPlayer) then return end
 
         local manager = localPlayer.WeaponManagerComponent or
@@ -18825,18 +18715,18 @@ local function _UNUSED_BTHideFOVCircle_orig()
 
         local shootComponent = weapon.ShootWeaponComponent
         if not Valid(shootComponent) then
-            -- FourRDiag("BT", "no shootEnt", 10)
+            
             return
         end
         if type(shootComponent.ShootBulletInner) ~= "function" then
-            -- FourRDiag("BT", "no ShootBulletInner", 10)
+            
             return
         end
         
         
         if _G.pghacksState.BTLogEntSrc ~= "ShootWeaponComponent" then
             _G.pghacksState.BTLogEntSrc = "ShootWeaponComponent"
-            -- FourRDiag("BT", "shootEnt src=ShootWeaponComponent", 0)
+            
         end
         local controller = type(localPlayer.GetPlayerControllerSafety) ==
                                "function" and
@@ -18894,7 +18784,7 @@ local function _UNUSED_BTHideFOVCircle_orig()
         if now >= (_G.pghacksState.BTScanAt or 0) then
             _G.pghacksState.BTScanAt = now + 0.12
             target = ScanBTTarget(localPlayer, controller, viewport.X * 0.5,
-                                  viewport.Y * 0.5, boneName)
+                                  viewport.Y * 0.5, boneName, tonumber(_G.pghacksConfig.BTFov) or 300)
             local oldTarget = _G.pghacksState.BTTarget
             if oldTarget and oldTarget ~= target then
                 
@@ -18912,7 +18802,7 @@ local function _UNUSED_BTHideFOVCircle_orig()
                 BTRestoreTargetCollision(_G.pghacksState.BTTarget)
             end
             _G.pghacksState.BTTarget = nil
-            -- FourRDiag("BT", "no target", 10)
+            
             return
         end
         
@@ -18934,7 +18824,7 @@ local function _UNUSED_BTHideFOVCircle_orig()
             pcall(function()
                 btDist = localPlayer:GetDistanceTo(target) or 0
             end)
-            -- FourRDiag("BT", "steer bone=" .. tostring(boneName) ..
+             ..
                 " dist=" ..
                 tostring(math.floor(btDist / 500 + 0.5) * 5) .. "m", 5)
             return
@@ -18992,7 +18882,7 @@ local function _UNUSED_BTHideFOVCircle_orig()
             pcall(function()
                 btDist = localPlayer:GetDistanceTo(target) or 0
             end)
-            -- FourRDiag("BT", "fire bone=" .. tostring(boneName) ..
+             ..
                 " dist=" ..
                 tostring(math.floor(btDist / 500 + 0.5) * 5) .. "m", 5)
         end)
@@ -19000,6 +18890,8 @@ local function _UNUSED_BTHideFOVCircle_orig()
 end
 
 
+
+-- ============================================================================
 
 local function FastAimbotTick()
     if isExpired then return end
