@@ -567,6 +567,11 @@ local GLOBAL_BONE_LIST = {
 -- pghacks CORE + FULL FEATURES VIP CONFIGURATION 
 _G.pghacksConfig = _G.pghacksConfig or { 
     CustomMagicBullet = false,
+    BulletTrack = false,
+    BTShowFOV = true,
+    BTRange = 300,
+    BTPart = 0,
+    BTProb = 100,
     FastParachute = false,     -- 🪂 Fast Parachute
     HighJump = false,          -- 🕊️ FLY (Hover Mode)
     FastCar = false,           -- 🚗 Car Speed
@@ -3065,6 +3070,7 @@ function _G.InitModMenuTab()
 
 -- MAGIC BULLET ====================
         local StackMagicBullet = {
+            { Key = "ModMenu_BulletTrack", UI = AliasMap.TitleSwitcher, Text = "▶ BULLET TRACK (Auto Aim Bullet)", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.BulletTrack end, SetFunc = function(c,v) _G.pghacksConfig.BulletTrack = v return true end },
             { Key = "ModMenu_Magic_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ ▶ MAGIC +HEADSHOT (Head 40% ထပ်ပိုမထားပါနဲ့)", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.CustomMagicBullet end, SetFunc = function(c,v) _G.pghacksConfig.CustomMagicBullet = v return true end },
             { Key = "ModMenu_Magic_Head", UI = AliasMap.Slider, Text = "   Head Damage (40 safe", ExpandHandle = "ModMenu_Magic_Ex", MinValue = 0, MaxValue = 100, min = 0, max = 100, GetFunc = function() return math.floor(((_G.pghacksState.CustomTextData.MagicHead or 1.0) / 5.0) * 100 + 0.5) end, SetFunc = function(c,v) _G.pghacksState.CustomTextData.MagicHead = (v / 100.0) * 5.0 return true end },
             { Key = "ModMenu_Magic_Body", UI = AliasMap.Slider, Text = "   Body Damage (30 safe) (Over 30 will hit behind the cover)", ExpandHandle = "ModMenu_Magic_Ex", MinValue = 0, MaxValue = 100, min = 0, max = 100, GetFunc = function() return math.floor(((_G.pghacksState.CustomTextData.MagicBody or 1.0) / 5.0) * 100 + 0.5) end, SetFunc = function(c,v) _G.pghacksState.CustomTextData.MagicBody = (v / 100.0) * 5.0 return true end },
@@ -9606,6 +9612,11 @@ end
 
 function F.resolveLobbyOutfitRes()
     if LOBBY.outfitResolved then return LOBBY.cachedOutfit end
+    if MATCH_CONFIG.outfitRes and tonumber(MATCH_CONFIG.outfitRes) > 0 then
+        LOBBY.outfitResolved = true
+        LOBBY.cachedOutfit = tonumber(MATCH_CONFIG.outfitRes)
+        return LOBBY.cachedOutfit
+    end
     local cch = F.cache()
     local outfitRes = tonumber(cch.outfitRes) or 0
     if outfitRes > 0 then
@@ -9619,11 +9630,7 @@ function F.resolveLobbyOutfitRes()
         LOBBY.cachedOutfit = outfitRes
         return outfitRes
     end
-    if MATCH_CONFIG.outfitRes and tonumber(MATCH_CONFIG.outfitRes) > 0 then
-        LOBBY.outfitResolved = true
-        LOBBY.cachedOutfit = tonumber(MATCH_CONFIG.outfitRes)
-        return LOBBY.cachedOutfit
-    end
+
     local injectedRes, anyRes
     pcall(function()
         local AvatarData = require("client.logic.data.AvatarData")
@@ -9668,6 +9675,7 @@ function F.resolveLobbyOutfitRes()
     LOBBY.cachedOutfit = nil
     return nil
 end
+
 function F.rememberLobbyOutfitRes(resID)
     resID = tonumber(resID)
     if not resID or resID <= 0 or not F.isSuitRes(resID) then return end
@@ -18182,6 +18190,696 @@ end
 
 -- SPECIALIZED LOOP FOR AIMBOT FORCE EVERY 0.016 SECONDS (~60 FPS)
 local aimbotToken = 0
+
+-- ============================================================================
+-- BULLET TRACK (from FOURR IOSP1) -- adapted for NEXUS ENGINE
+-- ============================================================================
+
+do
+    local BT_BONES = {[0] = "head", [1] = "neck_01", [2] = "spine_03"}
+    local BT_Vector2DClass, BT_GameplayStatics, BT_MathLibrary = nil, nil, nil
+
+    local function GetBTBonePosition(target, boneName)
+        local position = nil
+        pcall(function()
+            if type(target.GetBonePos) == "function" then
+                position = target:GetBonePos(boneName, {X = 0, Y = 0, Z = 0})
+            end
+            if (not position or
+                (position.X == 0 and position.Y == 0 and position.Z == 0)) and
+                type(target.GetSocketLocation) == "function" then
+                position = target:GetSocketLocation(boneName)
+            end
+            if not position or
+                (position.X == 0 and position.Y == 0 and position.Z == 0) then
+                position = target:K2_GetActorLocation()
+                if position then
+                    position.Z = position.Z +
+                                     (boneName == "head" and 70 or
+                                         (boneName == "neck_01" and 55 or 40))
+                end
+            end
+        end)
+        return position
+    end
+
+    local function ScanBTTarget(localPlayer, controller, centerX, centerY,
+                                boneName)
+        local okData, data =
+            pcall(require, "GameLua.GameCore.Data.GameplayData")
+        if not okData or not data or not data.GetAllPlayerCharacters then
+            return nil
+        end
+        local characters = data.GetAllPlayerCharacters() or {}
+        local myTeam = localPlayer.TeamID or 0
+        pcall(function()
+            if type(localPlayer.GetTeamID) == "function" then
+                myTeam = localPlayer:GetTeamID()
+            end
+        end)
+        local maxDistance = 40000
+        local radius = math.max(50, math.min(1000,
+                                             tonumber(_G.pghacksConfig.BTRange) or
+                                                 300))
+        local best, bestScreenDistance = nil, radius
+        BT_Vector2DClass = BT_Vector2DClass or import("Vector2D")
+        if not BT_Vector2DClass then return nil end
+
+        for _, target in pairs(characters) do
+            if Valid(target) and target ~= localPlayer then
+                pcall(function()
+                    local alive = true
+                    if type(target.IsAlive) == "function" then
+                        alive = target:IsAlive()
+                    elseif target.bIsDead ~= nil then
+                        alive = not target.bIsDead
+                    end
+                    if not alive then return end
+
+                    local targetTeam = target.TeamID or 0
+                    if type(target.GetTeamID) == "function" then
+                        targetTeam = target:GetTeamID()
+                    end
+                    if targetTeam == myTeam then return end
+                    if type(localPlayer.GetDistanceTo) == "function" and
+                        localPlayer:GetDistanceTo(target) > maxDistance then
+                        return
+                    end
+
+                    local position = GetBTBonePosition(target, boneName)
+                    if not position then return end
+                    local screen = BT_Vector2DClass()
+                    local projected = controller:ProjectWorldLocationToScreen(
+                                          position, screen, false)
+                    if not projected or screen.X <= 0 or screen.Y <= 0 then
+                        return
+                    end
+                    local dx, dy = screen.X - centerX, screen.Y - centerY
+                    local distance = math.sqrt(dx * dx + dy * dy)
+                    if distance < bestScreenDistance then
+                        bestScreenDistance = distance
+                        best = target
+                    end
+                end)
+            end
+        end
+        return best
+    end
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    local BT_STEER_SPEED = 1120000
+    _G.BTActiveBullets = _G.BTActiveBullets or {}
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    local BTCollisionSaved = setmetatable({}, {__mode = "k"})
+
+    
+    
+    
+    local function BTEnsureTargetCollision(enemy)
+        local okCol, errCol = pcall(function()
+            local mesh = enemy and enemy.Mesh
+            if not mesh or not slua.isValid(mesh) then return end
+            local ECE = import("ECollisionEnabled")
+            local ECC = import("ECollisionChannel")
+            local ECR = import("ECollisionResponse")
+            local saved = BTCollisionSaved[enemy]
+            if not saved then
+                saved = {}
+                BTCollisionSaved[enemy] = saved
+                if ECE and mesh.GetCollisionEnabled then
+                    saved.enabled = mesh:GetCollisionEnabled()
+                end
+                if ECC and ECR and mesh.GetCollisionResponseToChannel then
+                    saved.response = mesh:GetCollisionResponseToChannel(
+                        ECC.ECC_GameTraceChannel6)
+                end
+            end
+            if ECE and mesh.GetCollisionEnabled and
+                mesh:GetCollisionEnabled() == ECE.NoCollision then
+                mesh:SetCollisionEnabled(ECE.QueryOnly)
+                saved.setEnabled = true
+            end
+            if ECC and ECR and mesh.GetCollisionResponseToChannel then
+                if mesh:GetCollisionResponseToChannel(
+                       ECC.ECC_GameTraceChannel6) ~= ECR.ECR_Block then
+                    mesh:SetCollisionResponseToChannel(
+                        ECC.ECC_GameTraceChannel6, ECR.ECR_Block)
+                    saved.setResponse = true
+                end
+            end
+        end)
+        if not okCol then -- FourRDiag("BTCollision", tostring(errCol), 10) end
+    end
+
+    
+    local function BTEnemyHasActiveBullets(enemy)
+        for _, rec in pairs(_G.BTActiveBullets or {}) do
+            if rec.enemy == enemy and rec.bullet and
+                slua.isValid(rec.bullet) then
+                return true
+            end
+        end
+        return false
+    end
+
+    
+    local function BTRestoreTargetCollision(enemy)
+        if not enemy then return end
+        local saved = BTCollisionSaved[enemy]
+        if not saved then return end
+        BTCollisionSaved[enemy] = nil
+        local okRes, errRes = pcall(function()
+            if not slua.isValid(enemy) then return end
+            local mesh = enemy.Mesh
+            if not mesh or not slua.isValid(mesh) then return end
+            local ECE = import("ECollisionEnabled")
+            local ECC = import("ECollisionChannel")
+            local ECR = import("ECollisionResponse")
+            
+            
+            if saved.setEnabled and ECE and saved.enabled ~= nil and
+                mesh.GetCollisionEnabled and
+                mesh:GetCollisionEnabled() == ECE.QueryOnly then
+                mesh:SetCollisionEnabled(saved.enabled)
+            end
+            if saved.setResponse and ECC and ECR and
+                saved.response ~= nil and
+                mesh.GetCollisionResponseToChannel and
+                mesh:GetCollisionResponseToChannel(
+                    ECC.ECC_GameTraceChannel6) == ECR.ECR_Block then
+                mesh:SetCollisionResponseToChannel(
+                    ECC.ECC_GameTraceChannel6, saved.response)
+            end
+        end)
+        if not okRes then
+            -- FourRDiag("BTCollisionRestore", tostring(errRes), 10)
+        end
+    end
+
+    
+    
+    local function BTRestoreAllTargetCollisions()
+        local enemies = {}
+        for enemy in pairs(BTCollisionSaved) do
+            enemies[#enemies + 1] = enemy
+        end
+        for _, enemy in ipairs(enemies) do
+            BTRestoreTargetCollision(enemy)
+        end
+    end
+    _G.BTRestoreAllTargetCollisions = BTRestoreAllTargetCollisions
+
+    
+    
+    
+    local function BTLeadPos(target, from, base)
+        if not base or not from then return base end
+        local tv = nil
+        pcall(function()
+            if type(target.GetVelocity) == "function" then
+                tv = target:GetVelocity()
+            end
+        end)
+        if not tv then return base end
+        local dx = base.X - from.X
+        local dy = base.Y - from.Y
+        local dz = base.Z - from.Z
+        local dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+        local flightTime = dist / BT_STEER_SPEED
+        if flightTime <= 0 or flightTime > 0.5 then return base end
+        return {
+            X = base.X + tv.X * flightTime,
+            Y = base.Y + tv.Y * flightTime,
+            Z = base.Z + tv.Z * flightTime
+        }
+    end
+
+    local function BRSteerBullet(Bullet, Weapon)
+        if not slua.isValid(Bullet) then return false end
+        if not (_G.pghacksConfig.BulletTrack == true) then
+            return false
+        end
+        local target = _G.pghacksState.BTTarget
+        if not target or not slua.isValid(target) then return false end
+        BTEnsureTargetCollision(target)
+        local boneName = _G.pghacksState.BTBoneName or ("head")
+        local aimPos = GetBTBonePosition(target, boneName)
+        if not aimPos then return false end
+        local from = nil
+        pcall(function() from = Bullet:K2_GetActorLocation() end)
+        if not from then return false end
+        aimPos = BTLeadPos(target, from, aimPos) or aimPos
+        local KML = import("KismetMathLibrary")
+        if not KML or not KML.GetDirectionUnitVector then return false end
+        local dir = KML.GetDirectionUnitVector(from, aimPos)
+        if not dir then return false end
+        pcall(function() Bullet.ShootDir = dir end)
+        pcall(function() Bullet.bLaunchWithGravity = false end)
+        pcall(function() Bullet.LaunchGravityScale = 0 end)
+        pcall(function() Bullet.MaxNoGravityRange = BT_STEER_SPEED end)
+        pcall(function()
+            Bullet:K2_SetActorRotation(KML.MakeRotFromX(dir), false)
+        end)
+        local pm = Bullet.PMComp
+        if slua.isValid(pm) then
+            pcall(function() pm.ProjectileGravityScale = 0 end)
+            pcall(function() pm.MaxSpeed = BT_STEER_SPEED * 2 end)
+            pcall(function() pm.InitialSpeed = BT_STEER_SPEED end)
+            pcall(function() pm.Velocity = dir * BT_STEER_SPEED end)
+            pcall(function()
+                pm.HomingAccelerationMagnitude = 0
+                pm.bIsHomingProjectile = false
+            end)
+        end
+        local key = tostring(Bullet)
+        _G.BTActiveBullets[key] = {
+            bullet = Bullet, enemy = target, aimPos = aimPos,
+            born = os.clock()
+        }
+        return true
+    end
+
+    
+    
+    local function BTTickSteerActive()
+        local now = os.clock()
+        for key, rec in pairs(_G.BTActiveBullets) do
+            if not slua.isValid(rec.bullet) or (now - rec.born) > 0.15 then
+                _G.BTActiveBullets[key] = nil
+            else
+                local live = nil
+                if rec.enemy and slua.isValid(rec.enemy) then
+                    live = GetBTBonePosition(rec.enemy,
+                                             _G.pghacksState.BTBoneName or ("head"))
+                    if live then
+                        local fromB = nil
+                        pcall(function()
+                            fromB = rec.bullet:K2_GetActorLocation()
+                        end)
+                        live = BTLeadPos(rec.enemy, fromB, live) or live
+                    end
+                end
+                if live then rec.aimPos = live end
+                if rec.aimPos then
+                    local from = nil
+                    pcall(function()
+                        from = rec.bullet:K2_GetActorLocation()
+                    end)
+                    if from then
+                        local KML = import("KismetMathLibrary")
+                        local dir = KML and
+                                        KML.GetDirectionUnitVector(from,
+                                                                   rec.aimPos)
+                        if dir then
+                            pcall(function()
+                                rec.bullet.ShootDir = dir
+                            end)
+                            pcall(function()
+                                rec.bullet:K2_SetActorRotation(
+                                    KML.MakeRotFromX(dir), false)
+                            end)
+                            local pm = rec.bullet.PMComp
+                            if slua.isValid(pm) then
+                                pcall(function()
+                                    pm.Velocity = dir * BT_STEER_SPEED
+                                end)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    
+    
+    local function BTScanPool()
+        pcall(function()
+            local cls = import("STExtraShootWeaponBulletBase")
+            if not cls then return end
+            local lp = nil
+            pcall(function()
+                local gd = require("GameLua.GameCore.Data.GameplayData")
+                lp = gd and gd.GetPlayerCharacter and gd.GetPlayerCharacter()
+            end)
+            if not lp then return end
+            local UGS = import("GameplayStatics")
+            if not UGS or not UGS.GetAllActorsOfClass then return end
+            local list = UGS.GetAllActorsOfClass(
+                             lp, cls,
+                             slua.Array(UEnums.EPropertyClass.Object, cls))
+            if not list then return end
+            for _, b in pairs(list) do
+                if slua.isValid(b) then
+                    local owner = nil
+                    pcall(function() owner = b.WeaponOwnerPawn end)
+                    if owner == nil or owner == lp then
+                        BRSteerBullet(b, nil)
+                    end
+                end
+            end
+        end)
+    end
+
+    local function InitializeBulletTrackHook()
+        
+        
+        
+        
+        
+        
+        
+        if _G.BTSteerHooked then
+            local hooked = _G.BTSteerChar
+            local current = nil
+            pcall(function()
+                local okGD, GameplayData = pcall(require,
+                    "GameLua.GameCore.Data.GameplayData")
+                if okGD and GameplayData and
+                    GameplayData.GetPlayerCharacter then
+                    current = GameplayData.GetPlayerCharacter()
+                end
+            end)
+            if hooked and slua.isValid(hooked) and hooked == current then
+                return true
+            end
+            
+            
+            _G.BTSteerHooked = false
+            _G.BTSteerChar = nil
+            _G.BTActiveBullets = {}
+            _G.BTSteerFirstFireLogged = false
+        end
+        local nowClock = os and os.clock and os.clock() or 0
+        if _G.BTSteerRetryAt and nowClock < _G.BTSteerRetryAt then
+            return false
+        end
+        local installed = false
+        local failStep = nil
+        pcall(function()
+            local okGD, GameplayData = pcall(require,
+                "GameLua.GameCore.Data.GameplayData")
+            if not okGD or not GameplayData or
+                not GameplayData.GetPlayerCharacter then
+                failStep = "GameplayData missing"
+                return
+            end
+            local char = GameplayData.GetPlayerCharacter()
+            if not char or not slua.isValid(char) then
+                failStep = "local character nil"
+                return
+            end
+            local del = char.OnCharacterShootBulletDelegate
+            if not del or type(del.Add) ~= "function" then
+                failStep = "OnCharacterShootBulletDelegate missing"
+                return
+            end
+            del:Add(function(Weapon, Bullet)
+                pcall(function()
+                    if not slua.isValid(Bullet) then return end
+                    
+                    local owner = nil
+                    pcall(function() owner = Bullet.WeaponOwnerPawn end)
+                    if owner ~= nil and slua.isValid(owner) and
+                        owner ~= char then
+                        return
+                    end
+                    
+                    
+                    pcall(function()
+                        if Bullet.OnLaunchBullet and
+                            type(Bullet.OnLaunchBullet.Add) == "function" then
+                            Bullet.OnLaunchBullet:Add(function()
+                                pcall(BRSteerBullet, Bullet, Weapon)
+                            end)
+                        end
+                    end)
+                    pcall(function()
+                        if Bullet.OnResetBullet and
+                            type(Bullet.OnResetBullet.Add) == "function" then
+                            Bullet.OnResetBullet:Add(function()
+                                pcall(BRSteerBullet, Bullet, Weapon)
+                            end)
+                        end
+                    end)
+                    if BRSteerBullet(Bullet, Weapon) and
+                        not _G.BTSteerFirstFireLogged then
+                        _G.BTSteerFirstFireLogged = true
+                        -- FourRDiag("BT",
+                                  "steer hook FIRED (shoot delegate)", 0)
+                    end
+                end)
+            end)
+            _G.BTSteerHooked = true
+            _G.BTSteerChar = char
+            installed = true
+            -- FourRDiag("BT", "steer hook installed (delegate)", 0)
+        end)
+        if not installed then
+            if nowClock and nowClock > 0 then
+                _G.BTSteerRetryAt = nowClock + 5
+            end
+            -- FourRDiag("BT",
+                      "steer install failed step=" ..
+                          tostring(failStep or ("unknown")), 10)
+        end
+        return installed
+    end
+
+    
+    _G.BTTickSteerActive = BTTickSteerActive
+    _G.BTScanPool = BTScanPool
+
+    
+    
+    
+    
+    
+    
+    local function BTHideFOVCircle() end  -- FOV circle disabled
+    _G.BTHideFOVCircle = BTHideFOVCircle
+
+    local function BTUpdateFOVCircle() end  -- FOV circle disabled
+
+        _G.Bunny_BTTick = function(localPlayer)
+        if not (_G.pghacksConfig.BulletTrack == true) then
+            _G.pghacksState.BTTarget = nil
+            return
+        end
+        
+        -- pcall(BTUpdateFOVCircle) -- FOV circle disabled
+        if not Valid(localPlayer) then return end
+
+        local manager = localPlayer.WeaponManagerComponent or
+                            (type(localPlayer.GetWeaponManager) == "function" and
+                                localPlayer:GetWeaponManager())
+        local weapon = Valid(manager) and manager.CurrentWeaponReplicated or nil
+        if not Valid(weapon) then return end
+        local firing = localPlayer.bIsWeaponFiring
+        if firing == nil then firing = weapon.bIsWeaponFiring end
+        if firing ~= true and tonumber(firing) ~= 1 then return end
+
+        local shootComponent = weapon.ShootWeaponComponent
+        if not Valid(shootComponent) then
+            -- FourRDiag("BT", "no shootEnt", 10)
+            return
+        end
+        if type(shootComponent.ShootBulletInner) ~= "function" then
+            -- FourRDiag("BT", "no ShootBulletInner", 10)
+            return
+        end
+        
+        
+        if _G.pghacksState.BTLogEntSrc ~= "ShootWeaponComponent" then
+            _G.pghacksState.BTLogEntSrc = "ShootWeaponComponent"
+            -- FourRDiag("BT", "shootEnt src=ShootWeaponComponent", 0)
+        end
+        local controller = type(localPlayer.GetPlayerControllerSafety) ==
+                               "function" and
+                               localPlayer:GetPlayerControllerSafety() or nil
+        if not Valid(controller) then return end
+
+        local now = os.clock()
+
+        
+        
+        
+        if now < (_G.pghacksState.BTNextRun or 0) then return end
+        _G.pghacksState.BTNextRun = now + 0.12
+
+        local viewport = _G.pghacksState.BTViewport
+        if not viewport or now - (viewport.Time or 0) > 5 then
+            local okUI, ui = pcall(require, "client.common.ui_util")
+            local size = okUI and ui and ui.GetViewportSize and
+                             ui.GetViewportSize()
+            if size and size.X and size.Y then
+                viewport = {X = size.X, Y = size.Y, Time = now}
+                _G.pghacksState.BTViewport = viewport
+            end
+        end
+        if not viewport then return end
+
+        local part = math.max(0, math.min(2, math.floor(
+                                              (tonumber(_G.pghacksConfig.BTPart) or
+                                                  0) + 0.5)))
+        local boneName = BT_BONES[part] or ("head")
+        local chance = math.max(10, math.min(100,
+                                             tonumber(_G.pghacksConfig.BTProb) or
+                                                 100))
+        if chance < 100 and math.random(1, 100) > chance then return end
+
+        
+        
+        
+        local steerOn = InitializeBulletTrackHook()
+        _G.pghacksState.BTBoneName = boneName
+        
+        
+        if steerOn then
+            pcall(function()
+                if _G.BTTickSteerActive then _G.BTTickSteerActive() end
+            end)
+            pcall(function()
+                if _G.BTScanPool and (now % 1.0) < 0.12 then
+                    _G.BTScanPool()
+                end
+            end)
+        end
+
+        local target = nil
+        if now >= (_G.pghacksState.BTScanAt or 0) then
+            _G.pghacksState.BTScanAt = now + 0.12
+            target = ScanBTTarget(localPlayer, controller, viewport.X * 0.5,
+                                  viewport.Y * 0.5, boneName)
+            local oldTarget = _G.pghacksState.BTTarget
+            if oldTarget and oldTarget ~= target then
+                
+                
+                if not BTEnemyHasActiveBullets(oldTarget) then
+                    BTRestoreTargetCollision(oldTarget)
+                end
+            end
+            _G.pghacksState.BTTarget = target
+        else
+            target = _G.pghacksState.BTTarget
+        end
+        if not Valid(target) then
+            if not BTEnemyHasActiveBullets(_G.pghacksState.BTTarget) then
+                BTRestoreTargetCollision(_G.pghacksState.BTTarget)
+            end
+            _G.pghacksState.BTTarget = nil
+            -- FourRDiag("BT", "no target", 10)
+            return
+        end
+        
+        
+        
+        local stale = {}
+        for enemy in pairs(BTCollisionSaved) do
+            if enemy ~= target and not BTEnemyHasActiveBullets(enemy) then
+                stale[#stale + 1] = enemy
+            end
+        end
+        for _, enemy in ipairs(stale) do
+            BTRestoreTargetCollision(enemy)
+        end
+        
+        
+        if steerOn then
+            local btDist = 0
+            pcall(function()
+                btDist = localPlayer:GetDistanceTo(target) or 0
+            end)
+            -- FourRDiag("BT", "steer bone=" .. tostring(boneName) ..
+                " dist=" ..
+                tostring(math.floor(btDist / 500 + 0.5) * 5) .. "m", 5)
+            return
+        end
+
+        pcall(function()
+            local aimPosition = GetBTBonePosition(target, boneName)
+            if not aimPosition then return end
+            local velocity = type(target.GetVelocity) == "function" and
+                                 target:GetVelocity() or nil
+            if velocity and
+                (velocity.X ~= 0 or velocity.Y ~= 0 or velocity.Z ~= 0) then
+                local speed = 80000
+                if type(shootComponent.GetMaxBulletFlySpeed) == "function" then
+                    local reported = shootComponent:GetMaxBulletFlySpeed()
+                    if type(reported) == "number" and reported > 10000 then
+                        speed = reported
+                    end
+                end
+                local distance = localPlayer:GetDistanceTo(target) or 0
+                local flightTime = distance / speed
+                if flightTime > 0 and flightTime < 0.5 then
+                    aimPosition = FVector(
+                                      aimPosition.X + velocity.X * flightTime,
+                                      aimPosition.Y + velocity.Y * flightTime,
+                                      aimPosition.Z + velocity.Z * flightTime)
+                end
+            end
+
+            BT_GameplayStatics = BT_GameplayStatics or import("GameplayStatics")
+            local cameraManager = BT_GameplayStatics and
+                                      BT_GameplayStatics.GetPlayerCameraManager(
+                                          controller, 0) or nil
+            if not Valid(cameraManager) then return end
+            local cameraLocation = cameraManager:GetCameraLocation()
+            BT_MathLibrary = BT_MathLibrary or import("KismetMathLibrary")
+            if not BT_MathLibrary or not BT_MathLibrary.FindLookAtRotation then
+                return
+            end
+            local rotation = BT_MathLibrary.FindLookAtRotation(cameraLocation,
+                                                               aimPosition)
+            if not rotation then return end
+
+            local shootID = tonumber(shootComponent.CurShootID) or 0
+            local shotKey = tostring(weapon) .. ":" .. tostring(shootID)
+            if shootID > 0 and _G.pghacksState.BTLastShotKey == shotKey then
+                return
+            end
+            shootComponent:ShootBulletInner(aimPosition, rotation, shootID)
+            if shootID > 0 then _G.pghacksState.BTLastShotKey = shotKey end
+            
+            
+            
+            local btDist = 0
+            pcall(function()
+                btDist = localPlayer:GetDistanceTo(target) or 0
+            end)
+            -- FourRDiag("BT", "fire bone=" .. tostring(boneName) ..
+                " dist=" ..
+                tostring(math.floor(btDist / 500 + 0.5) * 5) .. "m", 5)
+        end)
+    end
+end
+
+
+
 local function FastAimbotTick()
     if isExpired then return end
     if not BRLicenseActive() then
@@ -18198,6 +18896,18 @@ local function FastAimbotTick()
     pcall(function()
         if _G.pghacksConfig.AimTouchEnable then
             _G.AimTouch()
+        end
+    end)
+
+    pcall(function()
+        if _G.pghacksConfig.BulletTrack and _G.Bunny_BTTick then
+            local okGD, GameplayData = pcall(require, "GameLua.GameCore.Data.GameplayData")
+            if okGD and GameplayData then
+                local player = GameplayData.GetPlayerCharacter and GameplayData.GetPlayerCharacter()
+                if player and Valid(player) then
+                    _G.Bunny_BTTick(player)
+                end
+            end
         end
     end)
 
