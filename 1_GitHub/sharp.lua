@@ -15847,13 +15847,17 @@ function ESP.CreateNameLabel()
     if txt.SetJustification then txt:SetJustification(1) end  -- center
     ESP.SetFont(txt, 9)   -- small font to fit in 14px bar
     ESP.SetTextColor(txt, ESPMKC(1.0, 1.0, 1.0, 1.0))  -- WHITE (SHARPSHOOTER)
-    -- NO shadow, NO stroke
+    -- NO shadow, NO stroke/outline at all
     pcall(function()
       if txt.SetShadowOffset then txt:SetShadowOffset({X=0,Y=0}) end
       if txt.SetShadowColorAndOpacity then txt:SetShadowColorAndOpacity({R=0,G=0,B=0,A=0}) end
-      if txt.SetStrikeBrush then
-        local noBrush = {TintColor={R=0,G=0,B=0,A=0}}
-        pcall(function() txt:SetStrikeBrush(noBrush) end)
+      -- Remove UMG outline (stroke)
+      if txt.SetOutlineSettings then
+        pcall(function() txt:SetOutlineSettings({OutlineSize=0, bSeparateFillAlpha=false, OutlineColor={R=0,G=0,B=0,A=0}}) end)
+      end
+      -- Fallback stroke removal
+      if txt.Font then
+        pcall(function() txt.Font.OutlineSettings = {OutlineSize=0} end)
       end
     end)
     slot = canvas:AddChildToCanvas(txt)
@@ -15877,7 +15881,8 @@ function ESP.UpdateNameLabel(key, name, isBot, barLeft, barW, barTop, barH)
     ESP.NameLabels[key] = d
   end
   if not d then return end
-  local lbl = (name and name ~= "") and name or (isBot and "Bot" or "Enemy")
+  local rawLbl = (name and name ~= "") and name or (isBot and "Bot" or "Enemy")
+  local lbl = string.len(rawLbl) > 12 and string.sub(rawLbl, 1, 11) .. "." or rawLbl
   local bH = barH or 14.0
   local nx = RND(barLeft)
   local ny = RND(barTop)   -- same Y as bar top — text renders inside bar
@@ -15912,8 +15917,8 @@ local SKEL_PAIRS = {
   { "thigh_r",     "calf_r"      },
   { "calf_r",      "foot_r"      },
 }
-local SKEL_COLOR_VIS = ESPMKC(0.0, 1.0, 0.0, 0.90)   -- green visible (same as box)
-local SKEL_COLOR_HID = ESPMKC(1.0, 0.0, 0.0, 0.85)   -- red hidden (same as box)
+local SKEL_COLOR_VIS = ESPMKC(1.0, 0.0, 0.0, 0.85)   -- red = visible/open enemy (same as box)
+local SKEL_COLOR_HID = ESPMKC(0.0, 1.0, 0.0, 0.85)   -- green = cover/hidden (same as box)
 local SKEL_COLOR_BOT = ESPMKC(1.0, 1.0, 1.0, 0.85)   -- white for bot
 
 function ESP.EnsureSkelLine(key, idx)
@@ -15965,56 +15970,82 @@ function ESP.ReleaseSkeleton(key)
   ESP.Skeletons[key] = nil
 end
 
--- ===== ESP METER — orange-yellow bar above head (above health bar) =====
--- SHARPSHOOTER distance color: RGB(255,175,20) = ESPMKC(1.0, 0.686, 0.078, 1.0)
-local METER_COLOR_FG = ESPMKC(1.0, 0.686, 0.078, 0.90)   -- orange-yellow
-local METER_COLOR_BG = ESPMKC(0.0, 0.0, 0.0, 0.50)       -- dark transparent bg
-local METER_COLOR_BD = ESPMKC(0.0, 0.0, 0.0, 1.0)        -- black border
+-- ===== ESP RANGE LABEL — distance text above health bar (orange-yellow) =====
+local RANGE_COLOR = ESPMKC(1.0, 0.686, 0.078, 1.0)   -- orange-yellow RGB(255,175,20)
 
-function ESP.EnsureMeter(key)
-  local d = ESP.Meters[key]
-  if d and d.bg and ESPValid(d.bg.Widget) then return d end
-  local bg = ESP.NewLine(METER_COLOR_BG, 25)
-  local fill = ESP.NewLine(METER_COLOR_FG, 26)
-  local bord = ESP.NewLine(METER_COLOR_BD, 24)
-  d = { bg = bg, fill = fill, bord = bord }
+function ESP.CreateMeter(key)
+  local canvas = ESP.GetCanvas()
+  if not ESPValid(canvas) then return nil end
+  local txt = nil
+  pcall(function() txt = CGame:NewObjectFromPath("/Script/UMG.TextBlock", canvas) end)
+  if not ESPValid(txt) then return nil end
+  local slot = nil
+  pcall(function()
+    txt:SetText("")
+    txt:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible)
+    if txt.SetJustification then txt:SetJustification(1) end
+    ESP.SetFont(txt, 9)
+    ESP.SetTextColor(txt, RANGE_COLOR)
+    pcall(function()
+      if txt.SetShadowOffset then txt:SetShadowOffset({X=0,Y=0}) end
+      if txt.SetShadowColorAndOpacity then txt:SetShadowColorAndOpacity({R=0,G=0,B=0,A=0}) end
+      if txt.SetOutlineSettings then
+        pcall(function() txt:SetOutlineSettings({OutlineSize=0,bSeparateFillAlpha=false,OutlineColor={R=0,G=0,B=0,A=0}}) end)
+      end
+    end)
+    slot = canvas:AddChildToCanvas(txt)
+  end)
+  if not slot then ESP.Destroy({Widget=txt}) return nil end
+  pcall(function()
+    slot:SetAutoSize(false)
+    slot:SetAlignment(ESPV2(0.0, 0.0))
+    slot:SetZOrder(27)
+  end)
+  local d = { Widget = txt, Slot = slot }
   ESP.Meters[key] = d
   return d
 end
 
--- pct = health pct (0-1), boxL/boxR = box edges, boxTopY = top of ESP box (T)
-function ESP.UpdateMeter(key, pct, boxL, boxR, boxTopY)
+function ESP.EnsureMeter(key)
+  local d = ESP.Meters[key]
+  if d and ESPValid(d.Widget) then return d end
+  return ESP.CreateMeter(key)
+end
+
+-- distM = distance in meters, boxL/boxR = box edges, barTopY = health bar top Y
+function ESP.UpdateMeter(key, distM, boxL, boxR, barTopY)
   local d = ESP.EnsureMeter(key)
   if not d then return end
   local rawW = boxR - boxL
-  local mW = math.max(20, math.min(60, rawW * 0.6))   -- narrower than health bar
-  local mH = 3.0
-  local gapAboveBox = 4.0
-  local boxCX  = (boxL + boxR) * 0.5
-  local mLeft  = boxCX - mW * 0.5
-  local mTop   = boxTopY - gapAboveBox - mH
-  pct = tonumber(pct) or 1.0
-  if pct < 0 then pct = 0 end
-  if pct > 1 then pct = 1 end
-  local s = 1.0
-  if d.bord then ESP.DrawHBar(d.bord, mLeft - s, mTop - s, mW + s*2, mH + s*2) end
-  ESP.DrawHBar(d.bg, mLeft, mTop, mW, mH)
-  local fw = mW * pct
-  if fw < 1 then ESP.Hide(d.fill) return end
-  ESP.SetBrush(d.fill, METER_COLOR_FG, "mtfg")
-  ESP.DrawHBar(d.fill, mLeft, mTop, fw, mH)
+  local mW = math.max(45, math.min(180, rawW * 1.5))   -- same as health bar width
+  local mH = 12.0
+  local gapAboveBar = 2.0
+  local boxCX = (boxL + boxR) * 0.5
+  local mLeft = boxCX - mW * 0.5
+  local mTop  = barTopY - gapAboveBar - mH
+  local distTxt = string.format("%dm", math.max(0, math.floor((tonumber(distM) or 0) + 0.5)))
+  pcall(function()
+    if d.LastDist ~= distTxt then d.Widget:SetText(distTxt) d.LastDist = distTxt end
+    local nx, ny = RND(mLeft), RND(mTop)
+    if d.nx ~= nx or d.ny ~= ny or d.nw ~= mW then
+      d.nx, d.ny, d.nw = nx, ny, mW
+      d.Slot:SetPosition(ESPV2(nx, ny))
+      d.Slot:SetSize(ESPV2(mW, mH))
+    end
+    d.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible)
+  end)
 end
 
 function ESP.HideMeter(key)
   local d = ESP.Meters[key]
-  if not d then return end
-  ESP.Hide(d.bg) ESP.Hide(d.fill) ESP.Hide(d.bord)
+  if d and ESPValid(d.Widget) then
+    pcall(function() d.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.Collapsed) end)
+  end
 end
 
 function ESP.ReleaseMeter(key)
   local d = ESP.Meters[key]
-  if not d then return end
-  ESP.Destroy(d.bg) ESP.Destroy(d.fill) ESP.Destroy(d.bord)
+  if d then ESP.Destroy(d) end
   ESP.Meters[key] = nil
 end
 
@@ -16095,11 +16126,7 @@ function ESP.ResetWidgets()
   for _, d in pairs(ESP.Weapons) do ESP.Destroy(d) end
   for _, d in pairs(ESP.NameLabels) do ESP.Destroy(d) end
   for _, t in pairs(ESP.Skeletons) do for _, d in ipairs(t) do ESP.Destroy(d) end end
-  for _, d in pairs(ESP.Meters) do
-    if d.bg then ESP.Destroy(d.bg) end
-    if d.fill then ESP.Destroy(d.fill) end
-    if d.bord then ESP.Destroy(d.bord) end
-  end
+  for _, d in pairs(ESP.Meters) do ESP.Destroy(d) end
   ESP.NameLabels = {}
   ESP.Skeletons  = {}
   ESP.Meters     = {}
@@ -16238,17 +16265,17 @@ function ESP.Update()
               -- 1) ESP BOX — full rectangle (thin straight lines, SHARPSHOOTER style)
               if _G.pghacksConfig.EspLoai9 then
                 local th = 1.0   -- thin straight box
-                -- Visible=Green | Hidden: Bot=White, Real=Red
+                -- Visible/Open=RED | Cover/Hidden=GREEN | Bot=WHITE
                 local C_BOX, boxCK
-                if bVis then
-                  C_BOX = ESPMKC(0.0, 1.0, 0.0, 1.0)   -- Green visible
-                  boxCK = "box_green"
-                elseif item.IsBot then
-                  C_BOX = ESPMKC(1.0, 1.0, 1.0, 0.90)  -- White (Bot hidden)
+                if item.IsBot then
+                  C_BOX = ESPMKC(1.0, 1.0, 1.0, 0.90)  -- White (Bot)
                   boxCK = "box_white"
-                else
-                  C_BOX = ESPMKC(1.0, 0.0, 0.0, 1.0)   -- Red (Real Enemy hidden)
+                elseif bVis then
+                  C_BOX = ESPMKC(1.0, 0.0, 0.0, 1.0)   -- Red (Visible/Open enemy)
                   boxCK = "box_red"
+                else
+                  C_BOX = ESPMKC(0.0, 1.0, 0.0, 1.0)   -- Green (Cover/Hidden enemy)
+                  boxCK = "box_green"
                 end
                 local cd1 = ESP.EnsureCorner(key, 1, C_BOX)  -- top
                 local cd2 = ESP.EnsureCorner(key, 2, C_BOX)  -- bottom
@@ -16332,13 +16359,11 @@ function ESP.Update()
               end
 
               -- 4b) ESP METER — orange bar above head (SHARPSHOOTER style)
+              -- 4b) RANGE LABEL — distance text above health bar (orange, Esp9_Meter flag)
               if _G.pghacksConfig.Esp9_Meter then
-                local pctM = ESP.GetHealthPct(c)
-                -- meter sits above health bar: health bar top = T - 3 - 14 = T-17
-                -- meter sits above that: T - 17 - 4 - 3 = T-24
-                local barH_total = 14.0 + 3.0  -- barH + gap
-                local meterBoxTop = T - barH_total
-                ESP.UpdateMeter(key, pctM, L, R, meterBoxTop)
+                -- barTop = T - gapAboveHead(3) - barH(14) = T - 17
+                local barTopY = T - 3.0 - 14.0
+                ESP.UpdateMeter(key, item.Distance, L, R, barTopY)
               else
                 ESP.HideMeter(key)
               end
