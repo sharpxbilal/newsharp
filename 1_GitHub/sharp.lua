@@ -14486,7 +14486,7 @@ local function HealthColor(pct)
   pct = tonumber(pct) or 1.0
   if pct < 0 then pct = 0 end
   if pct > 1 then pct = 1 end
-  return ESPMKC(0.05, 0.94, 0.08, 0.35)  -- dark green +20% more saturate, alpha=0.35 transparent
+  return ESPMKC(0.0, 1.0, 0.0, 0.60)  -- exact counter green (clear area wala)
 end
 
 local ESP = {}
@@ -15790,7 +15790,7 @@ end
 function ESP.EnsureHealthFill(key)
   local d = ESP.HealthFill[key]
   if d and ESPValid(d.Widget) then return d end
-  d = ESP.NewLine(ESPMKC(0.05, 0.94, 0.08, 0.35), 32)  -- dark green +20% more saturate, alpha=0.35
+  d = ESP.NewLine(ESPMKC(0.0, 1.0, 0.0, 0.60), 32)  -- exact counter green (clear area wala)
   ESP.HealthFill[key] = d
   return d
 end
@@ -15816,7 +15816,7 @@ function ESP.UpdateHealthBar(key, pct, boxL, boxR, headTopY)
   if pct > 1 then pct = 1 end
 
   -- black border: 1px outside
-  local s = 0.6  -- 40% thinner border
+  local s = 0.72  -- +20% from 0.6
   if border then ESP.DrawHBar(border, barLeft - s, barTop - s, barW + s*2, barH + s*2) end
 
   -- dark transparent bg
