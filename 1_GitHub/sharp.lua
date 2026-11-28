@@ -15790,7 +15790,26 @@ end
 function ESP.EnsureHealthFill(key)
   local d = ESP.HealthFill[key]
   if d and ESPValid(d.Widget) then return d end
-  d = ESP.NewLine(ESPMKC(0.0, 1.0, 0.0, 0.60), 32)  -- exact counter green (clear area wala)
+  -- Use Border widget (same as ESP counter) for real transparency
+  local canvas = ESP.GetCanvas()
+  if not ESPValid(canvas) then return nil end
+  local border = nil
+  pcall(function() border = CGame:NewObjectFromPath("/Script/UMG.Border", canvas) end)
+  if not ESPValid(border) then
+    -- fallback to NewLine if Border unavailable
+    d = ESP.NewLine(ESPMKC(0.0, 1.0, 0.0, 0.60), 32)
+    ESP.HealthFill[key] = d
+    return d
+  end
+  local LC2 = import("LinearColor") or _G.FLinearColor
+  pcall(function()
+    border:SetBrushColor(LC2(0.0, 1.0, 0.0, 0.60))  -- exact counter green
+    border:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible)
+  end)
+  local slot = canvas:AddChildToCanvas(border)
+  if not slot then return nil end
+  pcall(function() slot:SetZOrder(32) slot:SetAutoSize(false) end)
+  d = { Widget = border, Slot = slot, IsBorder = true }
   ESP.HealthFill[key] = d
   return d
 end
@@ -15828,8 +15847,19 @@ function ESP.UpdateHealthBar(key, pct, boxL, boxR, headTopY)
     ESP.Hide(fill)
     return
   end
-  ESP.SetBrush(fill, HealthColor(pct), "dkgreen")
-  ESP.DrawHBar(fill, barLeft, barTop, fw, barH)
+  if fill.IsBorder then
+    -- Border widget: same as counter logic
+    local LC2 = import("LinearColor") or _G.FLinearColor
+    pcall(function()
+      fill.Widget:SetBrushColor(LC2(0.0, 1.0, 0.0, 0.60))
+      fill.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible)
+      fill.Slot:SetPosition(ESPV2(RND(barLeft), RND(barTop)))
+      fill.Slot:SetSize(ESPV2(RND(fw), barH))
+    end)
+  else
+    ESP.SetBrush(fill, HealthColor(pct), "dkgreen")
+    ESP.DrawHBar(fill, barLeft, barTop, fw, barH)
+  end
 end
 
 -- ===== NAME INSIDE HEALTH BAR (SHARPSHOOTER style) =====
