@@ -699,7 +699,9 @@ _G.pghacksConfig = _G.pghacksConfig or {
     Esp9_Weapon = false,   -- weapon icon
     Esp9_Team = false,     -- team color box
     Esp9_Distance = false, -- distance text
-    Esp9_Name = false,     -- player name
+    Esp9_Name = false,     -- player name (inside health bar, SHARPSHOOTER style)
+    Esp9_Skeleton = false, -- bone skeleton lines (SHARPSHOOTER style)
+    Esp9_Meter = false,    -- orange meter above head (SHARPSHOOTER style)
 }
 
 pcall(function()
@@ -2714,7 +2716,7 @@ local function GetConfigPaths(fileName)
     return paths
 end
 
-local ConfigFileName = "TEST_JOIN.txt"
+local ConfigFileName = "JOIN_PGHACKS1.txt"
 _G.LastConfigSaveStr = ""
 
 _G.SaveModSettings = function()
@@ -2952,8 +2954,10 @@ function _G.InitModMenuTab()
             { Key = "ModMenu_ESP9_Line",   UI = AliasMap.TitleSwitcher, Text = "   ESP LINE",       ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.Esp9_Line     end, SetFunc = function(c,v) _G.pghacksConfig.Esp9_Line     = v return true end },
             { Key = "ModMenu_ESP9_HP",     UI = AliasMap.TitleSwitcher, Text = "   ESP HEALTH BAR", ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.Esp9_HP       end, SetFunc = function(c,v) _G.pghacksConfig.Esp9_HP       = v return true end },
             { Key = "ModMenu_ESP9_Radar",  UI = AliasMap.TitleSwitcher, Text = "   360 MARKER",     ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.Esp9_Distance  end, SetFunc = function(c,v) _G.pghacksConfig.Esp9_Distance  = v return true end },
-            { Key = "ModMenu_ESP9_Name",   UI = AliasMap.TitleSwitcher, Text = "   ESP NAME",        ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.Esp9_Name      end, SetFunc = function(c,v) _G.pghacksConfig.Esp9_Name      = v return true end },
-           
+            { Key = "ModMenu_ESP9_Name",     UI = AliasMap.TitleSwitcher, Text = "   ESP NAME",         ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.Esp9_Name      end, SetFunc = function(c,v) _G.pghacksConfig.Esp9_Name      = v return true end },
+            { Key = "ModMenu_ESP9_Skeleton", UI = AliasMap.TitleSwitcher, Text = "   ESP SKELETON",     ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.Esp9_Skeleton  end, SetFunc = function(c,v) _G.pghacksConfig.Esp9_Skeleton  = v return true end },
+            { Key = "ModMenu_ESP9_Meter",    UI = AliasMap.TitleSwitcher, Text = "   ESP HEAD METER",   ExpandHandle = "ModMenu_ESP9_Header", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.Esp9_Meter     end, SetFunc = function(c,v) _G.pghacksConfig.Esp9_Meter     = v return true end },
+
             -- ESP THROWABLE
             { Key = "ModMenu_ESPThrowable_Ex", UI = AliasMap.TitleSwitcher, Text = "▶ GRENADE WARNING!! (Grenade, Smoke, Molotov)", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.ThrowableEnabled end, SetFunc = function(c,v) _G.pghacksConfig.ThrowableEnabled = v return true end },
             { Key = "ModMenu_Throwable_Grenade", UI = AliasMap.TitleSwitcher, Text = "   Grenade", ExpandHandle = "ModMenu_ESPThrowable_Ex", ExpandIndex = 0, GetFunc = function() return _G.pghacksConfig.ThrowableGrenade end, SetFunc = function(c,v) _G.pghacksConfig.ThrowableGrenade = v return true end },
@@ -14477,28 +14481,12 @@ end
 local function Lerp(a, b, t) return a + (b - a) * t end
 
 -- Health color: 100% green | 70% green+halka yellow | 40% red+halka white | 20% red
+-- SHARPSHOOTER style: dark green transparent fill (single color, no gradient)
 local function HealthColor(pct)
   pct = tonumber(pct) or 1.0
   if pct < 0 then pct = 0 end
   if pct > 1 then pct = 1 end
-  local r, g, b
-  if pct >= 0.7 then
-    local t = (pct - 0.7) / 0.3
-    r = Lerp(0.4, 0.0, t)
-    g = 1.0
-    b = 0.0
-  elseif pct >= 0.4 then
-    local t = (pct - 0.4) / 0.3
-    r = 1.0
-    g = Lerp(0.25, 0.80, t)
-    b = 0.0
-  else
-    local t = pct / 0.4
-    r = 1.0
-    g = Lerp(0.0, 0.25, t)
-    b = 0.0
-  end
-  return ESPMKC(r, g, b, 1.0)
+  return ESPMKC(0.07, 0.65, 0.12, 0.85)  -- dark green transparent
 end
 
 local ESP = {}
@@ -14511,7 +14499,9 @@ ESP.HealthBorder = {} -- white stroke around health bar: key -> {Widget, Slot}
 ESP.Marks = {}      -- yellow chevron: key -> {4 x Widget/Slot}
 ESP.Infos = {}      -- bottom texts: key -> {Container, Name, Dist, State, slots}
 ESP.Weapons = {}    -- weapon text above health bar: key -> {Widget, Slot}
-ESP.NameLabels = {} -- name above health bar: key -> {Widget, Slot}
+ESP.NameLabels = {} -- name inside health bar: key -> {Widget, Slot}
+ESP.Skeletons  = {} -- bone lines: key -> {array of {Widget,Slot} per bone pair}
+ESP.Meters     = {} -- head meter (above box top): key -> {bg, fill} each {Widget,Slot}
 -- ============================================================
 -- SOURCE-EXACT: RedBoxOverlay (counter) + SnapLine
 -- Only changes: slua.isValid→ESPValid, PlayerMapMarker.ESPCanvas→ESP.GetCanvas(),
@@ -15780,10 +15770,11 @@ function ESP.EnsureCorner(key, idx, color)
   return d
 end
 
+-- SHARPSHOOTER: thin BLACK border
 function ESP.EnsureHealthBorder(key)
   local d = ESP.HealthBorder[key]
   if d and ESPValid(d.Widget) then return d end
-  d = ESP.NewLine(ESPMKC(1.0, 1.0, 1.0, 1.0), 30)  -- white, behind bg
+  d = ESP.NewLine(ESPMKC(0.0, 0.0, 0.0, 1.0), 30)  -- black thin border
   ESP.HealthBorder[key] = d
   return d
 end
@@ -15791,7 +15782,7 @@ end
 function ESP.EnsureHealthBg(key)
   local d = ESP.HealthBg[key]
   if d and ESPValid(d.Widget) then return d end
-  d = ESP.NewLine(ESPMKC(0.0, 0.0, 0.0, CFG.SideBgAlpha or 0.55), 31)
+  d = ESP.NewLine(ESPMKC(0.0, 0.0, 0.0, 0.50), 31)  -- dark transparent bg
   ESP.HealthBg[key] = d
   return d
 end
@@ -15799,12 +15790,13 @@ end
 function ESP.EnsureHealthFill(key)
   local d = ESP.HealthFill[key]
   if d and ESPValid(d.Widget) then return d end
-  d = ESP.NewLine(C_GREEN, 32)
+  d = ESP.NewLine(ESPMKC(0.07, 0.65, 0.12, 0.85), 32)  -- dark green fill
   ESP.HealthFill[key] = d
   return d
 end
 
--- Health bar: HEAD KE UPAR, centered on enemy box, with white stroke border
+-- SHARPSHOOTER Health Bar: tall bar (fits name inside), black border, dark green fill
+-- barH=14 so name text renders inside the bar
 function ESP.UpdateHealthBar(key, pct, boxL, boxR, headTopY)
   local border = ESP.EnsureHealthBorder(key)
   local bg   = ESP.EnsureHealthBg(key)
@@ -15812,39 +15804,36 @@ function ESP.UpdateHealthBar(key, pct, boxL, boxR, headTopY)
   if not bg or not fill then return end
 
   local rawW = boxR - boxL
-  local barW = math.max(20, math.min(120, rawW))  -- clamped width
-  local barH = 5.0
-  local gapAboveHead = 4.0
-  local boxCX   = (boxL + boxR) * 0.5           -- center of enemy box
-  local barLeft = boxCX - barW * 0.5            -- centered bar left edge
+  local barW = math.max(30, math.min(120, rawW))  -- clamped width
+  local barH = 14.0   -- taller: name text fits inside
+  local gapAboveHead = 3.0
+  local boxCX   = (boxL + boxR) * 0.5
+  local barLeft = boxCX - barW * 0.5
   local barTop  = headTopY - gapAboveHead - barH
 
   pct = tonumber(pct) or 1.0
   if pct < 0 then pct = 0 end
   if pct > 1 then pct = 1 end
 
-  -- white stroke: 1px outside on all sides
-  local s = 2.0
+  -- black border: 1px outside
+  local s = 1.0
   if border then ESP.DrawHBar(border, barLeft - s, barTop - s, barW + s*2, barH + s*2) end
 
-  -- bg: full width dark bar (centered)
+  -- dark transparent bg
   ESP.DrawHBar(bg, barLeft, barTop, barW, barH)
 
-  -- fill: left-anchored from barLeft, width = barW * pct
+  -- dark green fill (pct based width)
   local fw = barW * pct
   if fw < 1 then
     ESP.Hide(fill)
     return
   end
-  local bucket
-  if pct >= 0.7 then bucket = "g_" .. math.floor(pct * 20 + 0.5)
-  elseif pct >= 0.4 then bucket = "y_" .. math.floor(pct * 20 + 0.5)
-  else bucket = "r_" .. math.floor(pct * 20 + 0.5) end
-  ESP.SetBrush(fill, HealthColor(pct), bucket)
+  ESP.SetBrush(fill, HealthColor(pct), "dkgreen")
   ESP.DrawHBar(fill, barLeft, barTop, fw, barH)
 end
 
--- ===== NAME ABOVE HEALTH BAR =====
+-- ===== NAME INSIDE HEALTH BAR (SHARPSHOOTER style) =====
+-- White, no shadow, no stroke — renders OVER the green fill inside the bar
 function ESP.CreateNameLabel()
   local canvas = ESP.GetCanvas()
   if not ESPValid(canvas) then return nil end
@@ -15856,27 +15845,31 @@ function ESP.CreateNameLabel()
     txt:SetText("")
     txt:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible)
     if txt.SetJustification then txt:SetJustification(1) end  -- center
-    ESP.SetFont(txt, 10)   -- fixed small font
-    ESP.SetTextColor(txt, ESPMKC(1.0, 1.0, 0.0, 1.0))  -- yellow
-    -- shadow/stroke band karo
+    ESP.SetFont(txt, 9)   -- small font to fit in 14px bar
+    ESP.SetTextColor(txt, ESPMKC(1.0, 1.0, 1.0, 1.0))  -- WHITE (SHARPSHOOTER)
+    -- NO shadow, NO stroke
     pcall(function()
       if txt.SetShadowOffset then txt:SetShadowOffset({X=0,Y=0}) end
       if txt.SetShadowColorAndOpacity then txt:SetShadowColorAndOpacity({R=0,G=0,B=0,A=0}) end
+      if txt.SetStrikeBrush then
+        local noBrush = {TintColor={R=0,G=0,B=0,A=0}}
+        pcall(function() txt:SetStrikeBrush(noBrush) end)
+      end
     end)
     slot = canvas:AddChildToCanvas(txt)
   end)
   if not slot then ESP.Destroy({Widget=txt}) return nil end
   pcall(function()
     slot:SetAutoSize(false)
-    slot:SetAlignment(ESPV2(0.0, 1.0))  -- left-top anchor; caller passes pre-computed left edge X
-    slot:SetZOrder(37)
+    slot:SetAlignment(ESPV2(0.0, 0.0))  -- top-left anchor
+    slot:SetZOrder(38)  -- above health fill (z=32)
   end)
   return { Widget = txt, Slot = slot }
 end
 
--- boxL = already calculated left edge (caller does: boxCX - clampW*0.5)
--- barW = clamped width, barTop = bottom Y of name widget
-function ESP.UpdateNameLabel(key, name, isBot, boxL, barW, barTop)
+-- SHARPSHOOTER: name goes INSIDE the health bar
+-- barLeft = left edge of health bar, barW = bar width, barTop = top Y of bar, barH = bar height
+function ESP.UpdateNameLabel(key, name, isBot, barLeft, barW, barTop, barH)
   local d = ESP.NameLabels[key]
   if not d or not ESPValid(d.Widget) then
     ESP.Destroy(d)
@@ -15885,19 +15878,135 @@ function ESP.UpdateNameLabel(key, name, isBot, boxL, barW, barTop)
   end
   if not d then return end
   local lbl = (name and name ~= "") and name or (isBot and "Bot" or "Enemy")
+  local bH = barH or 14.0
+  local nx = RND(barLeft)
+  local ny = RND(barTop)   -- same Y as bar top — text renders inside bar
   pcall(function()
     if d.LastN ~= lbl then d.Widget:SetText(lbl) d.LastN = lbl end
-    -- yellow color (no re-set needed every frame, CreateNameLabel already sets it)
-    local nameH = 14.0
-    local nx = RND(boxL)   -- left edge already pre-calculated by caller
-    local ny = RND(barTop)
     if d.nx ~= nx or d.ny ~= ny or d.nw ~= barW then
       d.nx, d.ny, d.nw = nx, ny, barW
       d.Slot:SetPosition(ESPV2(nx, ny))
-      d.Slot:SetSize(ESPV2(barW, nameH))
+      d.Slot:SetSize(ESPV2(barW, bH))
     end
     d.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible)
   end)
+end
+
+-- ===== ESP SKELETON (SHARPSHOOTER style: white bone lines) =====
+-- PUBG bone pairs
+local SKEL_PAIRS = {
+  { "head",        "neck_01"     },
+  { "neck_01",     "spine_03"    },
+  { "spine_03",    "spine_01"    },
+  { "spine_01",    "pelvis"      },
+  { "spine_03",    "upperarm_l"  },
+  { "upperarm_l",  "lowerarm_l"  },
+  { "lowerarm_l",  "hand_l"      },
+  { "spine_03",    "upperarm_r"  },
+  { "upperarm_r",  "lowerarm_r"  },
+  { "lowerarm_r",  "hand_r"      },
+  { "pelvis",      "thigh_l"     },
+  { "thigh_l",     "calf_l"      },
+  { "calf_l",      "foot_l"      },
+  { "pelvis",      "thigh_r"     },
+  { "thigh_r",     "calf_r"      },
+  { "calf_r",      "foot_r"      },
+}
+local SKEL_COLOR_VIS = ESPMKC(1.0, 1.0, 1.0, 0.85)   -- white visible
+local SKEL_COLOR_HID = ESPMKC(0.6, 0.6, 0.6, 0.45)   -- dim hidden
+
+function ESP.EnsureSkelLine(key, idx)
+  local t = ESP.Skeletons[key]
+  if not t then t = {} ESP.Skeletons[key] = t end
+  local d = t[idx]
+  if d and ESPValid(d.Widget) then return d end
+  d = ESP.NewLine(SKEL_COLOR_VIS, 29)   -- z below corners (30-38)
+  t[idx] = d
+  return d
+end
+
+function ESP.DrawSkeleton(key, pc, Character, bVis)
+  if not pc or not ESPValid(Character) then return end
+  local thick = 1.2
+  for i, pair in ipairs(SKEL_PAIRS) do
+    local w = ESP.EnsureSkelLine(key, i)
+    if not w then goto cont end
+    local p1 = ESP.GetBonePos(Character, pair[1])
+    local p2 = ESP.GetBonePos(Character, pair[2])
+    if not p1 or not p2 then ESP.Hide(w) goto cont end
+    local s1 = ESP.Project(pc, p1)
+    local s2 = ESP.Project(pc, p2)
+    if not s1 or not s2 then ESP.Hide(w) goto cont end
+    if s1.X < 0 or s1.X > ESP.ViewW or s2.X < 0 or s2.X > ESP.ViewW then ESP.Hide(w) goto cont end
+    local col = bVis and SKEL_COLOR_VIS or SKEL_COLOR_HID
+    ESP.SetBrush(w, col, bVis and "skv" or "skh")
+    ESP.DrawLine(w, s1.X, s1.Y, s2.X, s2.Y, thick)
+    ::cont::
+  end
+end
+
+function ESP.HideSkeleton(key)
+  local t = ESP.Skeletons[key]
+  if t then for _, d in ipairs(t) do ESP.Hide(d) end end
+end
+
+function ESP.ReleaseSkeleton(key)
+  local t = ESP.Skeletons[key]
+  if t then for _, d in ipairs(t) do ESP.Destroy(d) end end
+  ESP.Skeletons[key] = nil
+end
+
+-- ===== ESP METER — orange-yellow bar above head (above health bar) =====
+-- SHARPSHOOTER distance color: RGB(255,175,20) = ESPMKC(1.0, 0.686, 0.078, 1.0)
+local METER_COLOR_FG = ESPMKC(1.0, 0.686, 0.078, 0.90)   -- orange-yellow
+local METER_COLOR_BG = ESPMKC(0.0, 0.0, 0.0, 0.50)       -- dark transparent bg
+local METER_COLOR_BD = ESPMKC(0.0, 0.0, 0.0, 1.0)        -- black border
+
+function ESP.EnsureMeter(key)
+  local d = ESP.Meters[key]
+  if d and d.bg and ESPValid(d.bg.Widget) then return d end
+  local bg = ESP.NewLine(METER_COLOR_BG, 25)
+  local fill = ESP.NewLine(METER_COLOR_FG, 26)
+  local bord = ESP.NewLine(METER_COLOR_BD, 24)
+  d = { bg = bg, fill = fill, bord = bord }
+  ESP.Meters[key] = d
+  return d
+end
+
+-- pct = health pct (0-1), boxL/boxR = box edges, boxTopY = top of ESP box (T)
+function ESP.UpdateMeter(key, pct, boxL, boxR, boxTopY)
+  local d = ESP.EnsureMeter(key)
+  if not d then return end
+  local rawW = boxR - boxL
+  local mW = math.max(20, math.min(60, rawW * 0.6))   -- narrower than health bar
+  local mH = 3.0
+  local gapAboveBox = 4.0
+  local boxCX  = (boxL + boxR) * 0.5
+  local mLeft  = boxCX - mW * 0.5
+  local mTop   = boxTopY - gapAboveBox - mH
+  pct = tonumber(pct) or 1.0
+  if pct < 0 then pct = 0 end
+  if pct > 1 then pct = 1 end
+  local s = 1.0
+  if d.bord then ESP.DrawHBar(d.bord, mLeft - s, mTop - s, mW + s*2, mH + s*2) end
+  ESP.DrawHBar(d.bg, mLeft, mTop, mW, mH)
+  local fw = mW * pct
+  if fw < 1 then ESP.Hide(d.fill) return end
+  ESP.SetBrush(d.fill, METER_COLOR_FG, "mtfg")
+  ESP.DrawHBar(d.fill, mLeft, mTop, fw, mH)
+end
+
+function ESP.HideMeter(key)
+  local d = ESP.Meters[key]
+  if not d then return end
+  ESP.Hide(d.bg) ESP.Hide(d.fill) ESP.Hide(d.bord)
+end
+
+function ESP.ReleaseMeter(key)
+  local d = ESP.Meters[key]
+  if not d then return end
+  ESP.Destroy(d.bg) ESP.Destroy(d.fill) ESP.Destroy(d.bord)
+  ESP.Meters[key] = nil
 end
 
 function ESP.EnsureMark(key, idx)
@@ -15935,6 +16044,8 @@ function ESP.HideTarget(key)
   if nl and ESPValid(nl.Widget) then
     pcall(function() nl.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.Collapsed) end)
   end
+  ESP.HideSkeleton(key)
+  ESP.HideMeter(key)
 end
 
 function ESP.ReleaseTarget(key)
@@ -15959,6 +16070,8 @@ function ESP.ReleaseTarget(key)
   ESP.Weapons[key] = nil
   ESP.Destroy(ESP.NameLabels[key])
   ESP.NameLabels[key] = nil
+  ESP.ReleaseSkeleton(key)
+  ESP.ReleaseMeter(key)
   ESP.VisCache[key] = nil
 end
 
@@ -15972,7 +16085,15 @@ function ESP.ResetWidgets()
   for _, d in pairs(ESP.Infos) do ESP.Destroy(d) end
   for _, d in pairs(ESP.Weapons) do ESP.Destroy(d) end
   for _, d in pairs(ESP.NameLabels) do ESP.Destroy(d) end
+  for _, t in pairs(ESP.Skeletons) do for _, d in ipairs(t) do ESP.Destroy(d) end end
+  for _, d in pairs(ESP.Meters) do
+    if d.bg then ESP.Destroy(d.bg) end
+    if d.fill then ESP.Destroy(d.fill) end
+    if d.bord then ESP.Destroy(d.bord) end
+  end
   ESP.NameLabels = {}
+  ESP.Skeletons  = {}
+  ESP.Meters     = {}
   ESP.Weapons = {}
   ESP.Lines = {}
   ESP.Corners = {}
@@ -16158,18 +16279,20 @@ function ESP.Update()
                 ESP.Hide(ESP.HealthFill[key])
               end
 
-              -- 2b) NAME ABOVE HEALTH BAR (fixed 100px width, always centered on enemy)
+              -- 2b) NAME INSIDE HEALTH BAR (SHARPSHOOTER: white text over green fill)
               if _G.pghacksConfig.Esp9_Name then
                 local pName = ""
                 pcall(function() pName = c:GetPlayerNameSafety() or "" end)
                 if pName == "" then pName = item.IsBot and "Bot" or "Enemy" end
-                local fixedW = 100.0                    -- fixed width, door/paas same
-                local boxCX  = (L + R) * 0.5           -- true center of enemy box
-                local nameNX = boxCX - fixedW * 0.5    -- left edge always symmetric
-                local gapAbove = 4.0
-                local barH2    = 5.0
-                local nameTY   = T - gapAbove - barH2
-                ESP.UpdateNameLabel(key, pName, item.IsBot, nameNX, fixedW, nameTY)
+                -- match health bar position exactly
+                local rawW2   = R - L
+                local barW2   = math.max(30, math.min(120, rawW2))
+                local barH2   = 14.0
+                local gapHB2  = 3.0
+                local boxCX2  = (L + R) * 0.5
+                local barL2   = boxCX2 - barW2 * 0.5
+                local barT2   = T - gapHB2 - barH2
+                ESP.UpdateNameLabel(key, pName, item.IsBot, barL2, barW2, barT2, barH2)
               else
                 local nl = ESP.NameLabels[key]
                 if nl and ESPValid(nl.Widget) then
@@ -16197,6 +16320,25 @@ function ESP.Update()
               end
 
               -- 4) bVis upar (step 1 se pehle) compute ho chuki — reuse
+
+              -- 4a) ESP SKELETON — bone lines (SHARPSHOOTER style, white)
+              if _G.pghacksConfig.Esp9_Skeleton then
+                ESP.DrawSkeleton(key, pc, c, bVis)
+              else
+                ESP.HideSkeleton(key)
+              end
+
+              -- 4b) ESP METER — orange bar above head (SHARPSHOOTER style)
+              if _G.pghacksConfig.Esp9_Meter then
+                local pctM = ESP.GetHealthPct(c)
+                -- meter sits above health bar: health bar top = T - 3 - 14 = T-17
+                -- meter sits above that: T - 17 - 4 - 3 = T-24
+                local barH_total = 14.0 + 3.0  -- barH + gap
+                local meterBoxTop = T - barH_total
+                ESP.UpdateMeter(key, pctM, L, R, meterBoxTop)
+              else
+                ESP.HideMeter(key)
+              end
 
               -- 5) SNAP LINE — source-exact SL_UpdateSnapLine (Bot=Purple, Real=Red)
               SL_UpdateSnapLine(key, headS, on, fromX, fromY, item.IsBot, pc)
