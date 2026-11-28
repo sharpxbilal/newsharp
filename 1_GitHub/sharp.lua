@@ -14486,7 +14486,7 @@ local function HealthColor(pct)
   pct = tonumber(pct) or 1.0
   if pct < 0 then pct = 0 end
   if pct > 1 then pct = 1 end
-  return ESPMKC(0.0, 1.0, 0.0, 1.0)  -- same as invisible/cover box green
+  return ESPMKC(0.06, 0.78, 0.10, 0.60)  -- dark green +20% saturate, alpha=0.60 (counter jitna transparent)
 end
 
 local ESP = {}
@@ -15790,7 +15790,7 @@ end
 function ESP.EnsureHealthFill(key)
   local d = ESP.HealthFill[key]
   if d and ESPValid(d.Widget) then return d end
-  d = ESP.NewLine(ESPMKC(0.0, 1.0, 0.0, 1.0), 32)  -- same as invisible/cover box green
+  d = ESP.NewLine(ESPMKC(0.06, 0.78, 0.10, 0.60), 32)  -- dark green +20% saturate, alpha=0.60
   ESP.HealthFill[key] = d
   return d
 end
@@ -15804,8 +15804,8 @@ function ESP.UpdateHealthBar(key, pct, boxL, boxR, headTopY)
   if not bg or not fill then return end
 
   local rawW = boxR - boxL
-  local barW = math.max(45, math.min(180, rawW * 1.5))  -- 50% wider than box
-  local barH = 18.2   -- 30% increase from 14.0
+  local barW = math.max(54, math.min(216, rawW * 1.8))  -- width +20% (1.5→1.8)
+  local barH = 12.7   -- 18.2 - 30% = 12.74
   local gapAboveHead = 3.0
   local boxCX   = (boxL + boxR) * 0.5
   local barLeft = boxCX - barW * 0.5
@@ -15883,7 +15883,7 @@ function ESP.UpdateNameLabel(key, name, isBot, barLeft, barW, barTop, barH)
   if not d then return end
   local rawLbl = (name and name ~= "") and name or (isBot and "Bot" or "Enemy")
   local lbl = string.len(rawLbl) > 12 and string.sub(rawLbl, 1, 11) .. "." or rawLbl
-  local bH = barH or 18.2
+  local bH = barH or 12.7
   local textH = 7.0   -- approx height of font size 5
   local nx = RND(barLeft)
   local ny = RND(barTop + (bH - textH) * 0.5)   -- vertically centered inside bar
@@ -16018,7 +16018,7 @@ function ESP.UpdateMeter(key, distM, boxL, boxR, barTopY)
   local d = ESP.EnsureMeter(key)
   if not d then return end
   local rawW = boxR - boxL
-  local mW = math.max(45, math.min(180, rawW * 1.5))   -- same as health bar width
+  local mW = math.max(54, math.min(216, rawW * 1.8))   -- same as health bar width
   local mH = 12.0
   local gapAboveBar = 2.0
   local boxCX = (boxL + boxR) * 0.5
@@ -16317,8 +16317,8 @@ function ESP.Update()
                 if pName == "" then pName = item.IsBot and "Bot" or "Enemy" end
                 -- match health bar position exactly
                 local rawW2   = R - L
-                local barW2   = math.max(45, math.min(180, rawW2 * 1.5))
-                local barH2   = 18.2
+                local barW2   = math.max(54, math.min(216, rawW2 * 1.8))
+                local barH2   = 12.7
                 local gapHB2  = 3.0
                 local boxCX2  = (L + R) * 0.5
                 local barL2   = boxCX2 - barW2 * 0.5
@@ -16362,8 +16362,8 @@ function ESP.Update()
               -- 4b) ESP METER — orange bar above head (SHARPSHOOTER style)
               -- 4b) RANGE LABEL — distance text above health bar (orange, Esp9_Meter flag)
               if _G.pghacksConfig.Esp9_Meter then
-                -- barTop = T - gapAboveHead(3) - barH(18.2) = T - 21.2
-                local barTopY = T - 3.0 - 18.2
+                -- barTop = T - gapAboveHead(3) - barH(12.7) = T - 15.7
+                local barTopY = T - 3.0 - 12.7
                 ESP.UpdateMeter(key, item.Distance, L, R, barTopY)
               else
                 ESP.HideMeter(key)
