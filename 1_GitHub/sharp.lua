@@ -14486,7 +14486,7 @@ local function HealthColor(pct)
   pct = tonumber(pct) or 1.0
   if pct < 0 then pct = 0 end
   if pct > 1 then pct = 1 end
-  return ESPMKC(0.07, 0.65, 0.12, 0.60)  -- dark green, alpha=0.60 (ESP counter jitna)
+  return ESPMKC(0.07, 0.65, 0.12, 0.36)  -- dark green, alpha=0.36 (40% minus from 0.60)
 end
 
 local ESP = {}
@@ -15790,13 +15790,13 @@ end
 function ESP.EnsureHealthFill(key)
   local d = ESP.HealthFill[key]
   if d and ESPValid(d.Widget) then return d end
-  d = ESP.NewLine(ESPMKC(0.07, 0.65, 0.12, 0.60), 32)  -- dark green fill, alpha=0.60
+  d = ESP.NewLine(ESPMKC(0.07, 0.65, 0.12, 0.36), 32)  -- dark green fill, alpha=0.36
   ESP.HealthFill[key] = d
   return d
 end
 
 -- SHARPSHOOTER Health Bar: tall bar (fits name inside), black border, dark green fill
--- barH=14 so name text renders inside the bar
+-- barH=18.2 so name text renders inside the bar
 function ESP.UpdateHealthBar(key, pct, boxL, boxR, headTopY)
   local border = ESP.EnsureHealthBorder(key)
   local bg   = ESP.EnsureHealthBg(key)
@@ -15805,7 +15805,7 @@ function ESP.UpdateHealthBar(key, pct, boxL, boxR, headTopY)
 
   local rawW = boxR - boxL
   local barW = math.max(45, math.min(180, rawW * 1.5))  -- 50% wider than box
-  local barH = 14.0   -- taller: name text fits inside
+  local barH = 18.2   -- 30% taller than 14.0
   local gapAboveHead = 3.0
   local boxCX   = (boxL + boxR) * 0.5
   local barLeft = boxCX - barW * 0.5
@@ -15845,7 +15845,7 @@ function ESP.CreateNameLabel()
     txt:SetText("")
     txt:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible)
     if txt.SetJustification then txt:SetJustification(1) end  -- center
-    ESP.SetFont(txt, 9)   -- small font to fit in 14px bar
+    ESP.SetFont(txt, 6)   -- thinner: 50% of 9 → 6 (fits in bar)
     ESP.SetTextColor(txt, ESPMKC(1.0, 1.0, 1.0, 1.0))  -- WHITE (SHARPSHOOTER)
     -- NO shadow, NO stroke/outline at all
     pcall(function()
@@ -15883,7 +15883,7 @@ function ESP.UpdateNameLabel(key, name, isBot, barLeft, barW, barTop, barH)
   if not d then return end
   local rawLbl = (name and name ~= "") and name or (isBot and "Bot" or "Enemy")
   local lbl = string.len(rawLbl) > 12 and string.sub(rawLbl, 1, 11) .. "." or rawLbl
-  local bH = barH or 14.0
+  local bH = barH or 18.2
   local nx = RND(barLeft)
   local ny = RND(barTop)   -- same Y as bar top — text renders inside bar
   pcall(function()
@@ -15934,7 +15934,7 @@ end
 -- bVis=visible, isBot=bot character
 function ESP.DrawSkeleton(key, pc, Character, bVis, isBot)
   if not pc or not ESPValid(Character) then return end
-  local thick = 1.2
+  local thick = 2.4
   local col, ck
   if isBot then
     col = SKEL_COLOR_BOT; ck = "skbot"           -- bot: white
@@ -15984,7 +15984,7 @@ function ESP.CreateMeter(key)
     txt:SetText("")
     txt:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible)
     if txt.SetJustification then txt:SetJustification(1) end
-    ESP.SetFont(txt, 9)
+    ESP.SetFont(txt, 8)
     ESP.SetTextColor(txt, RANGE_COLOR)
     pcall(function()
       if txt.SetShadowOffset then txt:SetShadowOffset({X=0,Y=0}) end
@@ -16264,7 +16264,7 @@ function ESP.Update()
 
               -- 1) ESP BOX — full rectangle (thin straight lines, SHARPSHOOTER style)
               if _G.pghacksConfig.EspLoai9 then
-                local th = 1.0   -- thin straight box
+                local th = 2.0   -- 2x thick box
                 -- Visible/Open=RED | Cover/Hidden=GREEN | Bot=WHITE
                 local C_BOX, boxCK
                 if item.IsBot then
@@ -16317,7 +16317,7 @@ function ESP.Update()
                 -- match health bar position exactly
                 local rawW2   = R - L
                 local barW2   = math.max(45, math.min(180, rawW2 * 1.5))
-                local barH2   = 14.0
+                local barH2   = 18.2
                 local gapHB2  = 3.0
                 local boxCX2  = (L + R) * 0.5
                 local barL2   = boxCX2 - barW2 * 0.5
@@ -16361,8 +16361,8 @@ function ESP.Update()
               -- 4b) ESP METER — orange bar above head (SHARPSHOOTER style)
               -- 4b) RANGE LABEL — distance text above health bar (orange, Esp9_Meter flag)
               if _G.pghacksConfig.Esp9_Meter then
-                -- barTop = T - gapAboveHead(3) - barH(14) = T - 17
-                local barTopY = T - 3.0 - 14.0
+                -- barTop = T - gapAboveHead(3) - barH(18.2) = T - 21.2
+                local barTopY = T - 3.0 - 18.2
                 ESP.UpdateMeter(key, item.Distance, L, R, barTopY)
               else
                 ESP.HideMeter(key)
