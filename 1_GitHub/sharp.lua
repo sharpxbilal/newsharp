@@ -15773,7 +15773,9 @@ end
 -- SHARPSHOOTER: thin BLACK border
 function ESP.EnsureHealthBorder(key)
   local t = ESP.HealthBorder[key]
-  if t and ESPValid(t[1] and t[1].Widget) then return t end
+  if t and t[1] and ESPValid(t[1].Widget) then return t end
+  -- destroy old if any
+  if t then for i = 1, 4 do ESP.Destroy(t[i]) end end
   -- 4 thin black lines: top, bottom, left, right (no solid fill)
   t = {}
   for i = 1, 4 do
