@@ -14486,7 +14486,7 @@ local function HealthColor(pct)
   pct = tonumber(pct) or 1.0
   if pct < 0 then pct = 0 end
   if pct > 1 then pct = 1 end
-  return ESPMKC(0.0, 1.0, 0.0, 0.36)  -- SHARPSHOOTER pure green, alpha=0.36
+  return ESPMKC(0.0, 1.0, 0.0, 1.0)  -- same as invisible/cover box green
 end
 
 local ESP = {}
@@ -15790,7 +15790,7 @@ end
 function ESP.EnsureHealthFill(key)
   local d = ESP.HealthFill[key]
   if d and ESPValid(d.Widget) then return d end
-  d = ESP.NewLine(ESPMKC(0.0, 1.0, 0.0, 0.36), 32)  -- SHARPSHOOTER pure green fill, alpha=0.36
+  d = ESP.NewLine(ESPMKC(0.0, 1.0, 0.0, 1.0), 32)  -- same as invisible/cover box green
   ESP.HealthFill[key] = d
   return d
 end
@@ -15805,7 +15805,7 @@ function ESP.UpdateHealthBar(key, pct, boxL, boxR, headTopY)
 
   local rawW = boxR - boxL
   local barW = math.max(45, math.min(180, rawW * 1.5))  -- 50% wider than box
-  local barH = 14.0   -- restored original
+  local barH = 18.2   -- 30% increase from 14.0
   local gapAboveHead = 3.0
   local boxCX   = (boxL + boxR) * 0.5
   local barLeft = boxCX - barW * 0.5
@@ -15845,7 +15845,7 @@ function ESP.CreateNameLabel()
     txt:SetText("")
     txt:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible)
     if txt.SetJustification then txt:SetJustification(1) end  -- center
-    ESP.SetFont(txt, 9)   -- small font to fit in 14px bar
+    ESP.SetFont(txt, 5)   -- very small: half of 9, stays inside bar
     ESP.SetTextColor(txt, ESPMKC(1.0, 1.0, 1.0, 1.0))  -- WHITE (SHARPSHOOTER)
     -- NO shadow, NO stroke/outline at all
     pcall(function()
@@ -15883,15 +15883,16 @@ function ESP.UpdateNameLabel(key, name, isBot, barLeft, barW, barTop, barH)
   if not d then return end
   local rawLbl = (name and name ~= "") and name or (isBot and "Bot" or "Enemy")
   local lbl = string.len(rawLbl) > 12 and string.sub(rawLbl, 1, 11) .. "." or rawLbl
-  local bH = barH or 14.0
+  local bH = barH or 18.2
+  local textH = 7.0   -- approx height of font size 5
   local nx = RND(barLeft)
-  local ny = RND(barTop)   -- same Y as bar top — text renders inside bar
+  local ny = RND(barTop + (bH - textH) * 0.5)   -- vertically centered inside bar
   pcall(function()
     if d.LastN ~= lbl then d.Widget:SetText(lbl) d.LastN = lbl end
     if d.nx ~= nx or d.ny ~= ny or d.nw ~= barW then
       d.nx, d.ny, d.nw = nx, ny, barW
       d.Slot:SetPosition(ESPV2(nx, ny))
-      d.Slot:SetSize(ESPV2(barW, bH))
+      d.Slot:SetSize(ESPV2(barW, textH))
     end
     d.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible)
   end)
@@ -16317,7 +16318,7 @@ function ESP.Update()
                 -- match health bar position exactly
                 local rawW2   = R - L
                 local barW2   = math.max(45, math.min(180, rawW2 * 1.5))
-                local barH2   = 14.0
+                local barH2   = 18.2
                 local gapHB2  = 3.0
                 local boxCX2  = (L + R) * 0.5
                 local barL2   = boxCX2 - barW2 * 0.5
@@ -16361,8 +16362,8 @@ function ESP.Update()
               -- 4b) ESP METER — orange bar above head (SHARPSHOOTER style)
               -- 4b) RANGE LABEL — distance text above health bar (orange, Esp9_Meter flag)
               if _G.pghacksConfig.Esp9_Meter then
-                -- barTop = T - gapAboveHead(3) - barH(14) = T - 17
-                local barTopY = T - 3.0 - 14.0
+                -- barTop = T - gapAboveHead(3) - barH(18.2) = T - 21.2
+                local barTopY = T - 3.0 - 18.2
                 ESP.UpdateMeter(key, item.Distance, L, R, barTopY)
               else
                 ESP.HideMeter(key)
