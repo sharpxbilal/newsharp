@@ -15782,7 +15782,7 @@ end
 function ESP.EnsureHealthBg(key)
   local d = ESP.HealthBg[key]
   if d and ESPValid(d.Widget) then return d end
-  d = ESP.NewLine(ESPMKC(0.0, 0.0, 0.0, 0.30), 31)  -- dark transparent bg (lighter so fill shows)
+  d = ESP.NewLine(ESPMKC(0.0, 0.0, 0.0, 0.0), 31)  -- bg completely transparent (no black layer)
   ESP.HealthBg[key] = d
   return d
 end
