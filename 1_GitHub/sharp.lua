@@ -15834,28 +15834,30 @@ function ESP.UpdateHealthBar(key, pct, boxL, boxR, headTopY)
   if pct < 0 then pct = 0 end
   if pct > 1 then pct = 1 end
 
-  -- black border: 1px outside
-  local s = 0.72  -- +20% from 0.6
+  -- black border outline only (hide bg to avoid black bleed-through)
+  local s = 0.72
   if border then ESP.DrawHBar(border, barLeft - s, barTop - s, barW + s*2, barH + s*2) end
+  if bg then ESP.Hide(bg) end   -- bg off: solid black shows through transparent fill
 
-  -- dark transparent bg
-  ESP.DrawHBar(bg, barLeft, barTop, barW, barH)
-
-  -- dark green fill (pct based width)
+  -- green fill (pct based width) — Border widget like counter
   local fw = barW * pct
   if fw < 1 then
-    ESP.Hide(fill)
+    if fill then
+      pcall(function() fill.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.Collapsed) end)
+      fill.hidden = true
+    end
     return
   end
-  if fill.IsBorder then
-    -- Border widget: same as counter logic
+  if fill and fill.IsBorder then
     local LC2 = import("LinearColor") or _G.FLinearColor
+    local nx, ny, nw = RND(barLeft), RND(barTop), RND(fw)
     pcall(function()
       fill.Widget:SetBrushColor(LC2(0.0, 1.0, 0.0, 0.60))
       fill.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible)
-      fill.Slot:SetPosition(ESPV2(RND(barLeft), RND(barTop)))
-      fill.Slot:SetSize(ESPV2(RND(fw), barH))
+      fill.Slot:SetPosition(ESPV2(nx, ny))
+      fill.Slot:SetSize(ESPV2(nw, barH))
     end)
+    fill.hidden = false  -- reset so ESP.Hide works next time
   else
     ESP.SetBrush(fill, HealthColor(pct), "dkgreen")
     ESP.DrawHBar(fill, barLeft, barTop, fw, barH)
