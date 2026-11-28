@@ -14481,12 +14481,12 @@ end
 local function Lerp(a, b, t) return a + (b - a) * t end
 
 -- Health color: 100% green | 70% green+halka yellow | 40% red+halka white | 20% red
--- SHARPSHOOTER style: dark green transparent fill (single color, no gradient)
+-- SHARPSHOOTER style: dark green, opacity same as ESP counter (0.60)
 local function HealthColor(pct)
   pct = tonumber(pct) or 1.0
   if pct < 0 then pct = 0 end
   if pct > 1 then pct = 1 end
-  return ESPMKC(0.07, 0.65, 0.12, 0.85)  -- dark green transparent
+  return ESPMKC(0.07, 0.65, 0.12, 0.60)  -- dark green, alpha=0.60 (ESP counter jitna)
 end
 
 local ESP = {}
@@ -14799,16 +14799,16 @@ local function SL_UpdateSnapLine(key, canvasPos, bOnScreen, fromX, fromY, isBot,
     return
   end
   if not LineData then
-    -- Bot=Purple, Real=Red (source: visible=green, hidden=red; we use bot/real distinction)
-    local c = isBot and ESPMKC(0.63,0,1,0.85) or ESPMKC(1,0,0,0.85)
+    -- Bot=White, Real=Red
+    local c = isBot and ESPMKC(1,1,1,0.85) or ESPMKC(1,0,0,0.85)
     LineData = SL_CreateSnapLine(c)
     if not LineData or not LineData.Widget or not LineData.Slot then return end
     SnapLineWidgets[key] = LineData
   end
   local Widget = LineData.Widget
   local Slot   = LineData.Slot
-  -- color: Bot=Purple, Real=Red (always update)
-  local lineColor = isBot and ESPMKC(0.63,0,1,0.85) or ESPMKC(1,0,0,0.85)
+  -- color: Bot=White, Real=Red (always update)
+  local lineColor = isBot and ESPMKC(1,1,1,0.85) or ESPMKC(1,0,0,0.85)
   pcall(function() Widget:SetBrushColor(lineColor) end)
   pcall(function() Widget:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible) end)
   if not LineData._PivotSet then
@@ -15790,7 +15790,7 @@ end
 function ESP.EnsureHealthFill(key)
   local d = ESP.HealthFill[key]
   if d and ESPValid(d.Widget) then return d end
-  d = ESP.NewLine(ESPMKC(0.07, 0.65, 0.12, 0.85), 32)  -- dark green fill
+  d = ESP.NewLine(ESPMKC(0.07, 0.65, 0.12, 0.60), 32)  -- dark green fill, alpha=0.60
   ESP.HealthFill[key] = d
   return d
 end
@@ -15804,7 +15804,7 @@ function ESP.UpdateHealthBar(key, pct, boxL, boxR, headTopY)
   if not bg or not fill then return end
 
   local rawW = boxR - boxL
-  local barW = math.max(30, math.min(120, rawW))  -- clamped width
+  local barW = math.max(45, math.min(180, rawW * 1.5))  -- 50% wider than box
   local barH = 14.0   -- taller: name text fits inside
   local gapAboveHead = 3.0
   local boxCX   = (boxL + boxR) * 0.5
@@ -15912,8 +15912,9 @@ local SKEL_PAIRS = {
   { "thigh_r",     "calf_r"      },
   { "calf_r",      "foot_r"      },
 }
-local SKEL_COLOR_VIS = ESPMKC(1.0, 1.0, 1.0, 0.85)   -- white visible
-local SKEL_COLOR_HID = ESPMKC(0.6, 0.6, 0.6, 0.45)   -- dim hidden
+local SKEL_COLOR_VIS = ESPMKC(0.0, 1.0, 0.0, 0.90)   -- green visible (same as box)
+local SKEL_COLOR_HID = ESPMKC(1.0, 0.0, 0.0, 0.85)   -- red hidden (same as box)
+local SKEL_COLOR_BOT = ESPMKC(1.0, 1.0, 1.0, 0.85)   -- white for bot
 
 function ESP.EnsureSkelLine(key, idx)
   local t = ESP.Skeletons[key]
@@ -15925,9 +15926,18 @@ function ESP.EnsureSkelLine(key, idx)
   return d
 end
 
-function ESP.DrawSkeleton(key, pc, Character, bVis)
+-- bVis=visible, isBot=bot character
+function ESP.DrawSkeleton(key, pc, Character, bVis, isBot)
   if not pc or not ESPValid(Character) then return end
   local thick = 1.2
+  local col, ck
+  if isBot then
+    col = SKEL_COLOR_BOT; ck = "skbot"           -- bot: white
+  elseif bVis then
+    col = SKEL_COLOR_VIS; ck = "skvis"           -- visible real enemy: green
+  else
+    col = SKEL_COLOR_HID; ck = "skhid"           -- hidden real enemy: red
+  end
   for i, pair in ipairs(SKEL_PAIRS) do
     local w = ESP.EnsureSkelLine(key, i)
     if not w then goto cont end
@@ -15938,8 +15948,7 @@ function ESP.DrawSkeleton(key, pc, Character, bVis)
     local s2 = ESP.Project(pc, p2)
     if not s1 or not s2 then ESP.Hide(w) goto cont end
     if s1.X < 0 or s1.X > ESP.ViewW or s2.X < 0 or s2.X > ESP.ViewW then ESP.Hide(w) goto cont end
-    local col = bVis and SKEL_COLOR_VIS or SKEL_COLOR_HID
-    ESP.SetBrush(w, col, bVis and "skv" or "skh")
+    ESP.SetBrush(w, col, ck)
     ESP.DrawLine(w, s1.X, s1.Y, s2.X, s2.Y, thick)
     ::cont::
   end
@@ -16226,44 +16235,38 @@ function ESP.Update()
               -- visibility check (box color ke liye — always compute)
               local bVis = ESP.IsVisible(key, pc, camLoc, c)
 
-              -- 1) ESP BOX — sirf tab jab EspLoai9 ON ho
+              -- 1) ESP BOX — full rectangle (thin straight lines, SHARPSHOOTER style)
               if _G.pghacksConfig.EspLoai9 then
-                local arm = math.min(R - L, B - T) * (CFG.CornerLen or 0.28)
-                arm = math.max(CFG.CornerMin or 6, math.min(CFG.CornerMax or 28, arm))
-                local th = CFG.CornerThickness or 2.2
-                -- Visible=Green | Hidden: Bot=Purple, Real=Red
+                local th = 1.0   -- thin straight box
+                -- Visible=Green | Hidden: Bot=White, Real=Red
                 local C_BOX, boxCK
                 if bVis then
-                  C_BOX = ESPMKC(0.0, 1.0, 0.0, 1.0)   -- Green (visible ho to)
+                  C_BOX = ESPMKC(0.0, 1.0, 0.0, 1.0)   -- Green visible
                   boxCK = "box_green"
                 elseif item.IsBot then
-                  C_BOX = ESPMKC(0.63, 0.0, 1.0, 1.0)  -- Purple (Bot hidden)
-                  boxCK = "box_purple"
+                  C_BOX = ESPMKC(1.0, 1.0, 1.0, 0.90)  -- White (Bot hidden)
+                  boxCK = "box_white"
                 else
                   C_BOX = ESPMKC(1.0, 0.0, 0.0, 1.0)   -- Red (Real Enemy hidden)
                   boxCK = "box_red"
                 end
-                local cd1 = ESP.EnsureCorner(key, 1, C_BOX)
-                local cd2 = ESP.EnsureCorner(key, 2, C_BOX)
-                local cd3 = ESP.EnsureCorner(key, 3, C_BOX)
-                local cd4 = ESP.EnsureCorner(key, 4, C_BOX)
-                local cd5 = ESP.EnsureCorner(key, 5, C_BOX)
-                local cd6 = ESP.EnsureCorner(key, 6, C_BOX)
-                local cd7 = ESP.EnsureCorner(key, 7, C_BOX)
-                local cd8 = ESP.EnsureCorner(key, 8, C_BOX)
-                -- Update color every frame (bot/real can change)
+                local cd1 = ESP.EnsureCorner(key, 1, C_BOX)  -- top
+                local cd2 = ESP.EnsureCorner(key, 2, C_BOX)  -- bottom
+                local cd3 = ESP.EnsureCorner(key, 3, C_BOX)  -- left
+                local cd4 = ESP.EnsureCorner(key, 4, C_BOX)  -- right
+                -- Update color every frame
                 ESP.SetBrush(cd1, C_BOX, boxCK) ESP.SetBrush(cd2, C_BOX, boxCK)
                 ESP.SetBrush(cd3, C_BOX, boxCK) ESP.SetBrush(cd4, C_BOX, boxCK)
-                ESP.SetBrush(cd5, C_BOX, boxCK) ESP.SetBrush(cd6, C_BOX, boxCK)
-                ESP.SetBrush(cd7, C_BOX, boxCK) ESP.SetBrush(cd8, C_BOX, boxCK)
-                ESP.DrawLine(cd1, L, T, L + arm, T, th)
-                ESP.DrawLine(cd2, L, T, L, T + arm, th)
-                ESP.DrawLine(cd3, R, T, R - arm, T, th)
-                ESP.DrawLine(cd4, R, T, R, T + arm, th)
-                ESP.DrawLine(cd5, L, B, L + arm, B, th)
-                ESP.DrawLine(cd6, L, B, L, B - arm, th)
-                ESP.DrawLine(cd7, R, B, R - arm, B, th)
-                ESP.DrawLine(cd8, R, B, R, B - arm, th)
+                -- Draw full rectangle (4 sides)
+                ESP.DrawLine(cd1, L, T, R, T, th)   -- top
+                ESP.DrawLine(cd2, L, B, R, B, th)   -- bottom
+                ESP.DrawLine(cd3, L, T, L, B, th)   -- left
+                ESP.DrawLine(cd4, R, T, R, B, th)   -- right
+                -- hide unused corner widgets (5-8)
+                local cc = ESP.Corners[key]
+                if cc then
+                  for i = 5, 8 do if cc[i] then ESP.Hide(cc[i]) end end
+                end
               else
                 local cc = ESP.Corners[key]
                 if cc then for i = 1, 8 do ESP.Hide(cc[i]) end end
@@ -16286,7 +16289,7 @@ function ESP.Update()
                 if pName == "" then pName = item.IsBot and "Bot" or "Enemy" end
                 -- match health bar position exactly
                 local rawW2   = R - L
-                local barW2   = math.max(30, math.min(120, rawW2))
+                local barW2   = math.max(45, math.min(180, rawW2 * 1.5))
                 local barH2   = 14.0
                 local gapHB2  = 3.0
                 local boxCX2  = (L + R) * 0.5
@@ -16323,7 +16326,7 @@ function ESP.Update()
 
               -- 4a) ESP SKELETON — bone lines (SHARPSHOOTER style, white)
               if _G.pghacksConfig.Esp9_Skeleton then
-                ESP.DrawSkeleton(key, pc, c, bVis)
+                ESP.DrawSkeleton(key, pc, c, bVis, item.IsBot)
               else
                 ESP.HideSkeleton(key)
               end
