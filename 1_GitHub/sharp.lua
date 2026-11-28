@@ -15796,26 +15796,7 @@ end
 function ESP.EnsureHealthFill(key)
   local d = ESP.HealthFill[key]
   if d and ESPValid(d.Widget) then return d end
-  -- Use Border widget (same as ESP counter) for real transparency
-  local canvas = ESP.GetCanvas()
-  if not ESPValid(canvas) then return nil end
-  local border = nil
-  pcall(function() border = CGame:NewObjectFromPath("/Script/UMG.Border", canvas) end)
-  if not ESPValid(border) then
-    -- fallback to NewLine if Border unavailable
-    d = ESP.NewLine(ESPMKC(0.0, 1.0, 0.0, 0.60), 32)
-    ESP.HealthFill[key] = d
-    return d
-  end
-  local LC2 = import("LinearColor") or _G.FLinearColor
-  pcall(function()
-    border:SetBrushColor(LC2(0.0, 1.0, 0.0, 0.60))  -- exact counter green
-    border:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible)
-  end)
-  local slot = canvas:AddChildToCanvas(border)
-  if not slot then return nil end
-  pcall(function() slot:SetZOrder(32) slot:SetAutoSize(false) end)
-  d = { Widget = border, Slot = slot, IsBorder = true }
+  d = ESP.NewLine(ESPMKC(0.0, 1.0, 0.0, 0.60), 32)
   ESP.HealthFill[key] = d
   return d
 end
@@ -15823,7 +15804,7 @@ end
 -- SHARPSHOOTER Health Bar: tall bar (fits name inside), black border, dark green fill
 -- barH=14 so name text renders inside the bar
 function ESP.UpdateHealthBar(key, pct, boxL, boxR, headTopY)
-  local border = ESP.EnsureHealthBorder(key)
+  local border = ESP.HealthBorder[key]  -- hide only, don't create new
   local bg   = ESP.EnsureHealthBg(key)
   local fill = ESP.EnsureHealthFill(key)
   if not bg or not fill then return end
@@ -15840,43 +15821,18 @@ function ESP.UpdateHealthBar(key, pct, boxL, boxR, headTopY)
   if pct < 0 then pct = 0 end
   if pct > 1 then pct = 1 end
 
-  -- 4 thin black lines outline (no solid fill — counter-style transparent)
-  local s = 0.72   -- line thickness
-  if border and border[1] then
-    -- top line
-    ESP.DrawLine(border[1], barLeft, barTop, barLeft + barW, barTop, s)
-    -- bottom line
-    ESP.DrawLine(border[2], barLeft, barTop + barH, barLeft + barW, barTop + barH, s)
-    -- left line
-    ESP.DrawLine(border[3], barLeft, barTop, barLeft, barTop + barH, s)
-    -- right line
-    ESP.DrawLine(border[4], barLeft + barW, barTop, barLeft + barW, barTop + barH, s)
-  end
-  if bg then ESP.Hide(bg) end   -- bg off: no black fill behind transparent bar
+  -- hide border lines if any exist (no new ones created)
+  if border then for i = 1, 4 do if border[i] then ESP.Hide(border[i]) end end end
+  if bg then ESP.Hide(bg) end
 
-  -- green fill (pct based width) — Border widget like counter
+  -- green fill (pct based width)
   local fw = barW * pct
   if fw < 1 then
-    if fill then
-      pcall(function() fill.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.Collapsed) end)
-      fill.hidden = true
-    end
+    ESP.Hide(fill)
     return
   end
-  if fill and fill.IsBorder then
-    local LC2 = import("LinearColor") or _G.FLinearColor
-    local nx, ny, nw = RND(barLeft), RND(barTop), RND(fw)
-    pcall(function()
-      fill.Widget:SetBrushColor(LC2(0.0, 1.0, 0.0, 0.60))
-      fill.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.SelfHitTestInvisible)
-      fill.Slot:SetPosition(ESPV2(nx, ny))
-      fill.Slot:SetSize(ESPV2(nw, barH))
-    end)
-    fill.hidden = false  -- reset so ESP.Hide works next time
-  else
-    ESP.SetBrush(fill, HealthColor(pct), "dkgreen")
-    ESP.DrawHBar(fill, barLeft, barTop, fw, barH)
-  end
+  ESP.SetBrush(fill, HealthColor(pct), "dkgreen")
+  ESP.DrawHBar(fill, barLeft, barTop, fw, barH)
 end
 
 -- ===== NAME INSIDE HEALTH BAR (SHARPSHOOTER style) =====
@@ -16115,13 +16071,7 @@ function ESP.HideTarget(key)
   local hb = ESP.HealthBorder[key]
   if hb then for i = 1, 4 do if hb[i] then ESP.Hide(hb[i]) end end end
   ESP.Hide(ESP.HealthBg[key])
-  local hf = ESP.HealthFill[key]
-  if hf then
-    if hf.IsBorder then
-      pcall(function() hf.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.Collapsed) end)
-      hf.hidden = true
-    else ESP.Hide(hf) end
-  end
+  ESP.Hide(ESP.HealthFill[key])
   local m = ESP.Marks[key]
   if m then for i = 1, 4 do ESP.Hide(m[i]) end end
   ESP.Hide(ESP.Lines[key])
@@ -16364,10 +16314,7 @@ function ESP.Update()
                 if hb2 then for i=1,4 do if hb2[i] then ESP.Hide(hb2[i]) end end end
                 ESP.Hide(ESP.HealthBg[key])
                 local hf2 = ESP.HealthFill[key]
-                if hf2 then
-                  if hf2.IsBorder then pcall(function() hf2.Widget:SetWidgetVisibility(UEnums.ESlateVisibility.Collapsed) end) hf2.hidden=true
-                  else ESP.Hide(hf2) end
-                end
+                ESP.Hide(hf2)
               end
 
               -- 2b) NAME INSIDE HEALTH BAR (SHARPSHOOTER: white text over green fill)
