@@ -15804,26 +15804,32 @@ end
 -- SHARPSHOOTER Health Bar: tall bar (fits name inside), black border, dark green fill
 -- barH=14 so name text renders inside the bar
 function ESP.UpdateHealthBar(key, pct, boxL, boxR, headTopY)
-  local border = ESP.HealthBorder[key]  -- hide only, don't create new
-  local bg   = ESP.EnsureHealthBg(key)
-  local fill = ESP.EnsureHealthFill(key)
-  if not bg or not fill then return end
+  local border = ESP.EnsureHealthBorder(key)
+  local fill   = ESP.EnsureHealthFill(key)
+  if not fill then return end
 
   local rawW = boxR - boxL
-  local barW = math.max(54, math.min(216, rawW * 1.8))  -- width +20% (1.5→1.8)
-  local barH = 12.7   -- 18.2 - 30% = 12.74
+  local barW = math.max(54, math.min(216, rawW * 1.8))
+  local barH = 12.7
+  local th   = 1.0   -- border line thickness
   local gapAboveHead = 3.0
   local boxCX   = (boxL + boxR) * 0.5
   local barLeft = boxCX - barW * 0.5
   local barTop  = headTopY - gapAboveHead - barH
+  local barRight  = barLeft + barW
+  local barBottom = barTop  + barH
 
   pct = tonumber(pct) or 1.0
   if pct < 0 then pct = 0 end
   if pct > 1 then pct = 1 end
 
-  -- hide border lines if any exist (no new ones created)
-  if border then for i = 1, 4 do if border[i] then ESP.Hide(border[i]) end end end
-  if bg then ESP.Hide(bg) end
+  -- black border: top, bottom, left, right
+  if border then
+    ESP.DrawLine(border[1], barLeft,  barTop,    barRight, barTop,    th)  -- top
+    ESP.DrawLine(border[2], barLeft,  barBottom, barRight, barBottom, th)  -- bottom
+    ESP.DrawLine(border[3], barLeft,  barTop,    barLeft,  barBottom, th)  -- left
+    ESP.DrawLine(border[4], barRight, barTop,    barRight, barBottom, th)  -- right
+  end
 
   -- green fill (pct based width)
   local fw = barW * pct
@@ -16069,8 +16075,7 @@ function ESP.HideTarget(key)
   local c = ESP.Corners[key]
   if c then for i = 1, 8 do ESP.Hide(c[i]) end end
   local hb = ESP.HealthBorder[key]
-  if hb then for i = 1, 4 do if hb[i] then ESP.Hide(hb[i]) end end end
-  ESP.Hide(ESP.HealthBg[key])
+  if hb then for i = 1, 4 do ESP.Hide(hb[i]) end end
   ESP.Hide(ESP.HealthFill[key])
   local m = ESP.Marks[key]
   if m then for i = 1, 4 do ESP.Hide(m[i]) end end
@@ -16124,7 +16129,7 @@ end
 function ESP.ResetWidgets()
   for _, d in pairs(ESP.Lines) do ESP.Destroy(d) end
   for _, t in pairs(ESP.Corners) do for _, d in pairs(t) do ESP.Destroy(d) end end
-  for _, d in pairs(ESP.HealthBorder) do ESP.Destroy(d) end
+  for _, t in pairs(ESP.HealthBorder) do for i=1,4 do ESP.Destroy(t[i]) end end
   for _, d in pairs(ESP.HealthBg) do ESP.Destroy(d) end
   for _, d in pairs(ESP.HealthFill) do ESP.Destroy(d) end
   for _, t in pairs(ESP.Marks) do for _, d in pairs(t) do ESP.Destroy(d) end end
@@ -16310,11 +16315,7 @@ function ESP.Update()
                 local pct = ESP.GetHealthPct(c)
                 ESP.UpdateHealthBar(key, pct, L, R, T)
               else
-                local hb2 = ESP.HealthBorder[key]
-                if hb2 then for i=1,4 do if hb2[i] then ESP.Hide(hb2[i]) end end end
-                ESP.Hide(ESP.HealthBg[key])
-                local hf2 = ESP.HealthFill[key]
-                ESP.Hide(hf2)
+                ESP.Hide(ESP.HealthFill[key])
               end
 
               -- 2b) NAME INSIDE HEALTH BAR (SHARPSHOOTER: white text over green fill)
@@ -16432,7 +16433,7 @@ function ESP.Update()
   for k, _ in pairs(ESP.Corners) do
     if not stillActive(k) and not seenCache[k] then ESP.ReleaseTarget(k) end
   end
-  for k, _ in pairs(ESP.HealthBg) do
+  for k, _ in pairs(ESP.HealthFill) do
     if not seenCache[k] and not stillActive(k) then ESP.ReleaseTarget(k) end
   end
 end
